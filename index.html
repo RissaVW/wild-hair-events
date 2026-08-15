@@ -85,6 +85,34 @@
   #error { color: #b04a4a; }
 
   footer.note { margin-top: 28px; font-size: 0.78rem; color: var(--muted); }
+  tbody tr { cursor: pointer; }
+
+  /* ---- Detail view ---- */
+  #detail { display: none; }
+  .back-link { display: inline-flex; align-items: center; gap: 6px; color: var(--gold-dark); font-weight: 600; font-size: 0.85rem; text-decoration: none; cursor: pointer; margin-bottom: 20px; }
+  .back-link:hover { color: var(--ink); }
+  .detail-header { margin-bottom: 24px; }
+  .detail-header h2 { font-family: var(--font-display); font-size: 1.7rem; margin: 0 0 4px; }
+  .detail-header .sub { color: var(--muted); font-size: 0.9rem; }
+
+  .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 24px; }
+  .form-grid.full { grid-template-columns: 1fr; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field.span2 { grid-column: span 2; }
+  .field label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); font-weight: 600; }
+  .field input, .field textarea {
+    padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; font-family: var(--font-body);
+    font-size: 0.92rem; color: var(--ink); background: var(--paper);
+  }
+  .field textarea { resize: vertical; min-height: 50px; }
+  .section-title { font-family: var(--font-display); font-size: 1.1rem; margin: 28px 0 10px; }
+
+  .save-bar { display: flex; align-items: center; gap: 14px; margin-top: 20px; }
+  .save-btn { padding: 11px 24px; border-radius: 8px; border: none; background: var(--gold); color: var(--ink); font-weight: 600; cursor: pointer; font-family: var(--font-body); font-size: 0.9rem; }
+  .save-btn:hover { background: var(--gold-dark); color: white; }
+  .save-btn:disabled { opacity: 0.6; cursor: default; }
+  .save-status { font-size: 0.85rem; color: var(--good); }
+  .save-status.err { color: #b04a4a; }
 </style>
 </head>
 <body>
@@ -136,6 +164,48 @@
   </table>
 
   <footer class="note">Pilot build — data current as of last import from Auction_Tracker.xlsx.</footer>
+
+  <div id="detail">
+    <a class="back-link" onclick="showList()">&larr; Back to all events</a>
+    <div class="detail-header">
+      <h2 id="detail-client"></h2>
+      <div class="sub" id="detail-eventname"></div>
+    </div>
+
+    <div class="section-title">Event details</div>
+    <div class="form-grid">
+      <div class="field"><label>Event date</label><input type="date" id="f-event_date"></div>
+      <div class="field"><label>Venue</label><input type="text" id="f-venue"></div>
+      <div class="field"><label>Guest count</label><input type="number" id="f-guest_count"></div>
+      <div class="field"><label>Bidding software</label><input type="text" id="f-software_used"></div>
+      <div class="field"><label>Bid sheets status</label><input type="text" id="f-bid_sheets_status"></div>
+      <div class="field"><label>Bid cards status</label><input type="text" id="f-bid_cards_status"></div>
+      <div class="field span2"><label>Contract status</label><input type="text" id="f-contract_status"></div>
+      <div class="field span2"><label>Notes / event name</label><input type="text" id="f-name"></div>
+    </div>
+
+    <div class="section-title">Financials</div>
+    <div class="form-grid">
+      <div class="field"><label>Fee (flat)</label><input type="number" step="0.01" id="f-fee"></div>
+      <div class="field"><label>Commission rate</label><input type="number" step="0.01" id="f-commission_rate"></div>
+      <div class="field"><label>Actual</label><input type="number" step="0.01" id="f-actual"></div>
+      <div class="field"><label>Expenses</label><input type="number" step="0.01" id="f-expenses"></div>
+      <div class="field span2"><label>Amount raised</label><input type="number" step="0.01" id="f-amount_raised"></div>
+    </div>
+
+    <div class="section-title">Contact</div>
+    <div class="form-grid">
+      <div class="field"><label>Client / organization name</label><input type="text" id="f-client_name"></div>
+      <div class="field"><label>Contact name</label><input type="text" id="f-contact_name"></div>
+      <div class="field"><label>Contact email</label><input type="email" id="f-contact_email"></div>
+      <div class="field"><label>1099 received</label><input type="text" id="f-tax_form_status"></div>
+    </div>
+
+    <div class="save-bar">
+      <button class="save-btn" id="save-btn" onclick="saveEvent()">Save changes</button>
+      <span class="save-status" id="save-status"></span>
+    </div>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -271,6 +341,7 @@
         <td>${e.guest_count ?? '—'}</td>
         <td class="money">${e.amount_raised ? '$' + Number(e.amount_raised).toLocaleString() : '—'}</td>
       `;
+      tr.addEventListener('click', () => openDetail(e.id));
       tbody.appendChild(tr);
     });
 
@@ -278,6 +349,122 @@
       <div class="stat"><div class="n">${rows.length}</div><div class="l">Events shown</div></div>
       <div class="stat"><div class="n">$${rows.reduce((s, e) => s + (Number(e.amount_raised) || 0), 0).toLocaleString()}</div><div class="l">Total raised</div></div>
     `;
+  }
+
+  let currentEventId = null;
+  let currentClientId = null;
+
+  async function openDetail(eventId) {
+    document.getElementById('table').parentElement; // no-op, keeps structure
+    const { data, error } = await sb
+      .from('events')
+      .select(`
+        id, name, event_date, venue, guest_count, contract_status, software_used,
+        bid_sheets_status, bid_cards_status, fee, commission_rate, actual, expenses, amount_raised,
+        client_id, clients ( id, name, contact_name, contact_email, tax_form_status )
+      `)
+      .eq('id', eventId)
+      .single();
+
+    if (error) {
+      alert('Could not load this event: ' + error.message);
+      return;
+    }
+
+    currentEventId = data.id;
+    currentClientId = data.client_id;
+
+    document.getElementById('detail-client').textContent = data.clients ? data.clients.name : 'Unknown client';
+    document.getElementById('detail-eventname').textContent = data.name || '';
+
+    setVal('f-event_date', data.event_date);
+    setVal('f-venue', data.venue);
+    setVal('f-guest_count', data.guest_count);
+    setVal('f-software_used', data.software_used);
+    setVal('f-bid_sheets_status', data.bid_sheets_status);
+    setVal('f-bid_cards_status', data.bid_cards_status);
+    setVal('f-contract_status', data.contract_status);
+    setVal('f-name', data.name);
+    setVal('f-fee', data.fee);
+    setVal('f-commission_rate', data.commission_rate);
+    setVal('f-actual', data.actual);
+    setVal('f-expenses', data.expenses);
+    setVal('f-amount_raised', data.amount_raised);
+    setVal('f-client_name', data.clients ? data.clients.name : '');
+    setVal('f-contact_name', data.clients ? data.clients.contact_name : '');
+    setVal('f-contact_email', data.clients ? data.clients.contact_email : '');
+    setVal('f-tax_form_status', data.clients ? data.clients.tax_form_status : '');
+
+    document.getElementById('save-status').textContent = '';
+    document.getElementById('app').querySelector('header.top').style.display = 'none';
+    document.getElementById('stats').style.display = 'none';
+    document.querySelector('.controls').style.display = 'none';
+    document.getElementById('table').style.display = 'none';
+    document.getElementById('detail').style.display = 'block';
+    window.scrollTo(0, 0);
+  }
+
+  function showList() {
+    document.getElementById('detail').style.display = 'none';
+    document.getElementById('app').querySelector('header.top').style.display = 'flex';
+    document.getElementById('stats').style.display = 'flex';
+    document.querySelector('.controls').style.display = 'flex';
+    document.getElementById('table').style.display = 'table';
+  }
+
+  function setVal(id, val) {
+    document.getElementById(id).value = val ?? '';
+  }
+  function getVal(id) {
+    const v = document.getElementById(id).value;
+    return v === '' ? null : v;
+  }
+  function getNum(id) {
+    const v = document.getElementById(id).value;
+    return v === '' ? null : Number(v);
+  }
+
+  async function saveEvent() {
+    const btn = document.getElementById('save-btn');
+    const status = document.getElementById('save-status');
+    btn.disabled = true;
+    status.className = 'save-status';
+    status.textContent = 'Saving…';
+
+    const eventUpdate = {
+      event_date: getVal('f-event_date'),
+      venue: getVal('f-venue'),
+      guest_count: getNum('f-guest_count'),
+      software_used: getVal('f-software_used'),
+      bid_sheets_status: getVal('f-bid_sheets_status'),
+      bid_cards_status: getVal('f-bid_cards_status'),
+      contract_status: getVal('f-contract_status'),
+      name: getVal('f-name'),
+      fee: getNum('f-fee'),
+      commission_rate: getNum('f-commission_rate'),
+      actual: getNum('f-actual'),
+      expenses: getNum('f-expenses'),
+      amount_raised: getNum('f-amount_raised'),
+    };
+    const clientUpdate = {
+      name: getVal('f-client_name'),
+      contact_name: getVal('f-contact_name'),
+      contact_email: getVal('f-contact_email'),
+      tax_form_status: getVal('f-tax_form_status'),
+    };
+
+    const { error: e1 } = await sb.from('events').update(eventUpdate).eq('id', currentEventId);
+    const { error: e2 } = await sb.from('clients').update(clientUpdate).eq('id', currentClientId);
+
+    btn.disabled = false;
+    if (e1 || e2) {
+      status.className = 'save-status err';
+      status.textContent = 'Could not save: ' + ((e1 && e1.message) || (e2 && e2.message));
+    } else {
+      status.className = 'save-status';
+      status.textContent = 'Saved.';
+      loadEvents(); // refresh underlying list data silently
+    }
   }
 
   function escapeHtml(str) {
