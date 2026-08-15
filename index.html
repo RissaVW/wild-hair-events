@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wild Hair Auctions — Events</title>
+<style>
+  :root {
+    --ink: #1c2024;
+    --paper: #faf8f4;
+    --panel: #ffffff;
+    --line: #e4dfd6;
+    --gold: #b8863f;
+    --gold-dark: #8f6528;
+    --muted: #6b6459;
+    --good: #3f7a4f;
+    --warn: #b8863f;
+    --font-display: 'Fraunces', Georgia, serif;
+    --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+  }
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600&display=swap');
+
+  /* ---- Passcode gate ---- */
+  #gate {
+    position: fixed; inset: 0; background: var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 50; flex-direction: column; gap: 18px;
+  }
+  #gate h1 { color: var(--paper); font-family: var(--font-display); font-weight: 600; font-size: 1.6rem; margin: 0; }
+  #gate input {
+    padding: 12px 16px; font-size: 1rem; border-radius: 8px; border: none;
+    width: 220px; text-align: center; letter-spacing: 3px;
+  }
+  #gate button {
+    padding: 10px 22px; border-radius: 8px; border: none; background: var(--gold);
+    color: var(--ink); font-weight: 600; cursor: pointer; font-family: var(--font-body);
+  }
+  #gate button:hover { background: var(--gold-dark); color: white; }
+  #gate .err { color: #e08080; font-size: 0.85rem; height: 1em; }
+
+  /* ---- App shell ---- */
+  #app { display: none; max-width: 1200px; margin: 0 auto; padding: 40px 24px 80px; }
+  header.top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 28px; flex-wrap: wrap; gap: 12px; }
+  header.top h1 { font-family: var(--font-display); font-weight: 600; font-size: 2rem; margin: 0; }
+  header.top .eyebrow { text-transform: uppercase; letter-spacing: 2px; font-size: 0.72rem; color: var(--gold-dark); font-weight: 600; margin-bottom: 4px; }
+
+  .stats { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 20px; min-width: 130px; }
+  .stat .n { font-family: var(--font-display); font-size: 1.6rem; font-weight: 600; }
+  .stat .l { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+
+  .controls { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; align-items: center; }
+  .controls input, .controls select {
+    padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel);
+    font-family: var(--font-body); font-size: 0.9rem; color: var(--ink);
+  }
+  .controls input[type="text"] { flex: 1; min-width: 200px; }
+
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border-radius: 12px; overflow: hidden; border: 1px solid var(--line); }
+  thead th {
+    text-align: left; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--muted); padding: 12px 14px; border-bottom: 1px solid var(--line); cursor: pointer; user-select: none;
+    white-space: nowrap;
+  }
+  thead th:hover { color: var(--ink); }
+  tbody td { padding: 12px 14px; border-bottom: 1px solid var(--line); font-size: 0.88rem; vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: #fbf6ee; }
+  .client-name { font-weight: 600; }
+  .event-name { color: var(--muted); font-size: 0.82rem; }
+  .money { font-variant-numeric: tabular-nums; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 600; }
+  .badge.mvw { background: #eee2cf; color: var(--gold-dark); }
+  .badge.iv { background: #dde6df; color: var(--good); }
+  .badge.none { background: #eee; color: var(--muted); }
+
+  #loading, #error, #empty { text-align: center; padding: 60px 0; color: var(--muted); }
+  #error { color: #b04a4a; }
+
+  footer.note { margin-top: 28px; font-size: 0.78rem; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <h1>Wild Hair Auctions</h1>
+  <div>
+    <input id="passcode-input" type="password" placeholder="Passcode" autocomplete="off" />
+  </div>
+  <button onclick="checkPasscode()">Enter</button>
+  <div class="err" id="gate-err"></div>
+</div>
+
+<div id="app">
+  <header class="top">
+    <div>
+      <div class="eyebrow">Wild Hair Auctions</div>
+      <h1>Active Events</h1>
+    </div>
+  </header>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="controls">
+    <input type="text" id="search" placeholder="Search by client or event name…" oninput="render()">
+    <select id="yearFilter" onchange="render()">
+      <option value="">All years</option>
+    </select>
+    <select id="auctioneerFilter" onchange="render()">
+      <option value="">All auctioneers</option>
+    </select>
+  </div>
+
+  <div id="loading">Loading events…</div>
+  <div id="error" style="display:none;"></div>
+  <div id="empty" style="display:none;">No events match your filters.</div>
+  <table id="table" style="display:none;">
+    <thead>
+      <tr>
+        <th data-key="client">Client</th>
+        <th data-key="event_date">Date</th>
+        <th data-key="venue">Venue</th>
+        <th data-key="auctioneer">Auctioneer</th>
+        <th data-key="guest_count">Guests</th>
+        <th data-key="amount_raised">Raised</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+
+  <footer class="note">Pilot build — data current as of last import from Auction_Tracker.xlsx.</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+  // ── FILL THESE TWO IN ──────────────────────────────────────
+  const SUPABASE_URL = "https://oooqjgpttzwwqaftlpbb.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9vb3FqZ3B0dHp3d3FhZnRscGJiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MTQxNzcsImV4cCI6MjEwMjM5MDE3N30.9-YYCxXgJ1GAUST7t9eTYS2phXx1qZwpTUqijsc5yGI";
+  const APP_PASSCODE = "wildhair"; // change this to whatever you want the passcode to be
+  // ────────────────────────────────────────────────────────────
+
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  function checkPasscode() {
+    const val = document.getElementById('passcode-input').value;
+    if (val === APP_PASSCODE) {
+      document.getElementById('gate').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      sessionStorage.setItem('wha_authed', '1');
+      loadEvents();
+    } else {
+      document.getElementById('gate-err').textContent = 'Incorrect passcode.';
+    }
+  }
+  document.getElementById('passcode-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') checkPasscode();
+  });
+  if (sessionStorage.getItem('wha_authed') === '1') {
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    loadEvents();
+  }
+
+  let allEvents = [];
+  let sortKey = 'event_date';
+  let sortDir = 'desc';
+
+  async function loadEvents() {
+    const { data, error } = await sb
+      .from('events')
+      .select(`
+        id, event_date, venue, guest_count, amount_raised, name,
+        clients ( name ),
+        staff_accounts ( initials )
+      `);
+
+    document.getElementById('loading').style.display = 'none';
+
+    if (error) {
+      document.getElementById('error').style.display = 'block';
+      document.getElementById('error').textContent =
+        'Could not load events: ' + error.message + ' — check that the Supabase URL/key are correct and that a read policy exists on the events table.';
+      return;
+    }
+
+    allEvents = data.map(e => ({
+      ...e,
+      client: e.clients ? e.clients.name : '—',
+      auctioneer: e.staff_accounts ? e.staff_accounts.initials : null,
+      year: e.event_date ? e.event_date.slice(0, 4) : ''
+    }));
+
+    populateFilters();
+    document.getElementById('table').style.display = 'table';
+    render();
+  }
+
+  function populateFilters() {
+    const years = [...new Set(allEvents.map(e => e.year).filter(Boolean))].sort().reverse();
+    const yearSel = document.getElementById('yearFilter');
+    years.forEach(y => {
+      const opt = document.createElement('option');
+      opt.value = y; opt.textContent = y;
+      yearSel.appendChild(opt);
+    });
+
+    const auctioneers = [...new Set(allEvents.map(e => e.auctioneer).filter(Boolean))].sort();
+    const aSel = document.getElementById('auctioneerFilter');
+    auctioneers.forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a; opt.textContent = a;
+      aSel.appendChild(opt);
+    });
+  }
+
+  document.querySelectorAll('thead th').forEach(th => {
+    th.addEventListener('click', () => {
+      const key = th.dataset.key;
+      if (sortKey === key) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+      else { sortKey = key; sortDir = 'asc'; }
+      render();
+    });
+  });
+
+  function render() {
+    const search = document.getElementById('search').value.toLowerCase();
+    const year = document.getElementById('yearFilter').value;
+    const auct = document.getElementById('auctioneerFilter').value;
+
+    let rows = allEvents.filter(e => {
+      const matchesSearch = !search ||
+        (e.client && e.client.toLowerCase().includes(search)) ||
+        (e.name && e.name.toLowerCase().includes(search));
+      const matchesYear = !year || e.year === year;
+      const matchesAuct = !auct || e.auctioneer === auct;
+      return matchesSearch && matchesYear && matchesAuct;
+    });
+
+    rows.sort((a, b) => {
+      let av = a[sortKey], bv = b[sortKey];
+      if (sortKey === 'client') { av = a.client; bv = b.client; }
+      if (av == null) av = '';
+      if (bv == null) bv = '';
+      if (av < bv) return sortDir === 'asc' ? -1 : 1;
+      if (av > bv) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    const tbody = document.getElementById('tbody');
+    tbody.innerHTML = '';
+    document.getElementById('empty').style.display = rows.length ? 'none' : 'block';
+
+    rows.forEach(e => {
+      const tr = document.createElement('tr');
+      const badgeClass = e.auctioneer === 'MVW' ? 'mvw' : e.auctioneer === 'IV' ? 'iv' : 'none';
+      tr.innerHTML = `
+        <td>
+          <div class="client-name">${escapeHtml(e.client)}</div>
+          ${e.name ? `<div class="event-name">${escapeHtml(e.name)}</div>` : ''}
+        </td>
+        <td>${e.event_date || '—'}</td>
+        <td>${escapeHtml(e.venue || '—')}</td>
+        <td><span class="badge ${badgeClass}">${e.auctioneer || 'Unassigned'}</span></td>
+        <td>${e.guest_count ?? '—'}</td>
+        <td class="money">${e.amount_raised ? '$' + Number(e.amount_raised).toLocaleString() : '—'}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    document.getElementById('stats').innerHTML = `
+      <div class="stat"><div class="n">${rows.length}</div><div class="l">Events shown</div></div>
+      <div class="stat"><div class="n">$${rows.reduce((s, e) => s + (Number(e.amount_raised) || 0), 0).toLocaleString()}</div><div class="l">Total raised</div></div>
+    `;
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+</script>
+</body>
+</html>
