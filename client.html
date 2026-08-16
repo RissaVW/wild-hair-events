@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wild Hair Auctions — Your Event</title>
+<style>
+  :root {
+    --ink: #1c2024; --paper: #faf8f4; --panel: #ffffff; --line: #e4dfd6;
+    --gold: #b8863f; --gold-dark: #8f6528; --muted: #6b6459; --good: #3f7a4f;
+    --font-display: 'Fraunces', Georgia, serif;
+    --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600&display=swap');
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font-body); }
+
+  #login-screen {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: var(--ink); flex-direction: column; gap: 18px; padding: 20px; text-align: center;
+  }
+  #login-screen h1 { color: var(--paper); font-family: var(--font-display); font-weight: 600; font-size: 1.7rem; margin: 0; }
+  #login-screen p { color: #c9c2b6; font-size: 0.9rem; max-width: 320px; margin: 0; }
+  #login-screen input {
+    padding: 12px 16px; font-size: 1rem; border-radius: 8px; border: none; width: 260px; text-align: center;
+  }
+  #login-screen button {
+    padding: 11px 24px; border-radius: 8px; border: none; background: var(--gold);
+    color: var(--ink); font-weight: 600; cursor: pointer; font-family: var(--font-body);
+  }
+  #login-screen button:hover { background: var(--gold-dark); color: white; }
+  #login-msg { font-size: 0.85rem; min-height: 1.2em; color: #e0c080; }
+
+  #app { display: none; max-width: 720px; margin: 0 auto; padding: 40px 20px 80px; }
+  header.top { margin-bottom: 24px; display: flex; justify-content: space-between; align-items: baseline; }
+  .eyebrow { text-transform: uppercase; letter-spacing: 2px; font-size: 0.72rem; color: var(--gold-dark); font-weight: 600; }
+  h1.event-title { font-family: var(--font-display); font-weight: 600; font-size: 1.8rem; margin: 4px 0 0; }
+  #logout { font-size: 0.82rem; color: var(--muted); cursor: pointer; text-decoration: underline; }
+
+  .section-title { font-family: var(--font-display); font-size: 1.05rem; margin: 26px 0 10px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px; }
+  @media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field.span2 { grid-column: 1 / -1; }
+  .field label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.7px; color: var(--muted); font-weight: 600; }
+  .field input { padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; font-family: var(--font-body); font-size: 0.92rem; background: var(--paper); }
+  .field .readonly { padding: 9px 12px; color: var(--ink); }
+  .highlight { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; margin-bottom: 8px; }
+  .highlight .n { font-family: var(--font-display); font-size: 1.6rem; font-weight: 600; }
+  .highlight .l { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+
+  .save-bar { display: flex; align-items: center; gap: 14px; margin-top: 20px; }
+  .save-btn { padding: 11px 24px; border-radius: 8px; border: none; background: var(--gold); color: var(--ink); font-weight: 600; cursor: pointer; font-family: var(--font-body); font-size: 0.9rem; }
+  .save-btn:hover { background: var(--gold-dark); color: white; }
+  .save-status { font-size: 0.85rem; color: var(--good); }
+  .save-status.err { color: #b04a4a; }
+  #no-event { text-align: center; padding: 60px 0; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <h1>Wild Hair Auctions</h1>
+  <p>Enter the email your event was set up with, and we'll send you a one-click sign-in link. No password needed.</p>
+  <input id="email-input" type="email" placeholder="you@yourorganization.org" autocomplete="email" />
+  <button onclick="sendMagicLink()">Send me a login link</button>
+  <div id="login-msg"></div>
+</div>
+
+<div id="app">
+  <header class="top">
+    <div>
+      <div class="eyebrow">Wild Hair Auctions</div>
+      <h1 class="event-title" id="event-title">Your Event</h1>
+    </div>
+    <span id="logout" onclick="logout()">Log out</span>
+  </header>
+
+  <div id="no-event" style="display:none;">
+    We couldn't find an event linked to this email yet. If this doesn't seem right, reach out to Wild Hair Auctions directly.
+  </div>
+
+  <div id="event-content" style="display:none;">
+    <div class="highlight">
+      <div class="n" id="raised-amt">—</div>
+      <div class="l">Amount raised so far</div>
+    </div>
+
+    <div class="section-title">Event details</div>
+    <div class="form-grid">
+      <div class="field"><label>Event date</label><div class="readonly" id="v-event_date">—</div></div>
+      <div class="field"><label>Venue</label><input type="text" id="f-venue"></div>
+      <div class="field"><label>Guest count</label><input type="number" id="f-guest_count"></div>
+      <div class="field"><label>Bidding software</label><input type="text" id="f-bidding_software"></div>
+      <div class="field span2"><label>Contract status</label><div class="readonly" id="v-contract_status">—</div></div>
+    </div>
+
+    <div class="section-title">Your contact info</div>
+    <div class="form-grid">
+      <div class="field"><label>Contact name</label><input type="text" id="f-contact_name"></div>
+      <div class="field"><label>Contact email</label><div class="readonly" id="v-contact_email">—</div></div>
+    </div>
+
+    <div class="save-bar">
+      <button class="save-btn" onclick="saveChanges()">Save changes</button>
+      <span class="save-status" id="save-status"></span>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+  const SUPABASE_URL = "https://oooqjgpttzwwqaftlpbb.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9vb3FqZ3B0dHp3d3FhZnRscGJiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MTQxNzcsImV4cCI6MjEwMjM5MDE3N30.9-YYCxXgJ1GAUST7t9eTYS2phXx1qZwpTUqijsc5yGI";
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  let currentEventId = null;
+  let currentClientId = null;
+
+  async function sendMagicLink() {
+    const email = document.getElementById('email-input').value.trim();
+    const msg = document.getElementById('login-msg');
+    if (!email) { msg.textContent = 'Please enter an email.'; return; }
+    msg.textContent = 'Sending…';
+    const { error } = await sb.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.origin + window.location.pathname }
+    });
+    msg.textContent = error ? ('Error: ' + error.message) : 'Check your email for a sign-in link.';
+  }
+
+  async function logout() {
+    await sb.auth.signOut();
+    window.location.href = window.location.pathname;
+  }
+
+  async function loadMyEvent() {
+    const { data: clientRows, error: cErr } = await sb.from('clients').select('id, name, contact_name, contact_email').limit(1);
+    if (cErr || !clientRows || clientRows.length === 0) {
+      document.getElementById('no-event').style.display = 'block';
+      return;
+    }
+    const client = clientRows[0];
+    currentClientId = client.id;
+
+    const { data: eventRows, error: eErr } = await sb
+      .from('events')
+      .select('id, name, event_date, venue, guest_count, contract_status, bidding_software, amount_raised')
+      .eq('client_id', client.id)
+      .order('event_date', { ascending: false })
+      .limit(1);
+
+    if (eErr || !eventRows || eventRows.length === 0) {
+      document.getElementById('no-event').style.display = 'block';
+      return;
+    }
+    const ev = eventRows[0];
+    currentEventId = ev.id;
+
+    document.getElementById('event-title').textContent = client.name || 'Your Event';
+    document.getElementById('raised-amt').textContent = ev.amount_raised ? '$' + Number(ev.amount_raised).toLocaleString() : '—';
+    document.getElementById('v-event_date').textContent = ev.event_date || '—';
+    document.getElementById('v-contract_status').textContent = ev.contract_status || '—';
+    document.getElementById('v-contact_email').textContent = client.contact_email || '—';
+    document.getElementById('f-venue').value = ev.venue || '';
+    document.getElementById('f-guest_count').value = ev.guest_count ?? '';
+    document.getElementById('f-bidding_software').value = ev.bidding_software || '';
+    document.getElementById('f-contact_name').value = client.contact_name || '';
+
+    document.getElementById('event-content').style.display = 'block';
+  }
+
+  async function saveChanges() {
+    const status = document.getElementById('save-status');
+    status.className = 'save-status';
+    status.textContent = 'Saving…';
+
+    const eventUpdate = {
+      venue: document.getElementById('f-venue').value || null,
+      guest_count: document.getElementById('f-guest_count').value ? Number(document.getElementById('f-guest_count').value) : null,
+      bidding_software: document.getElementById('f-bidding_software').value || null,
+    };
+    const clientUpdate = {
+      contact_name: document.getElementById('f-contact_name').value || null,
+    };
+
+    const { error: e1 } = await sb.from('events').update(eventUpdate).eq('id', currentEventId);
+    const { error: e2 } = await sb.from('clients').update(clientUpdate).eq('id', currentClientId);
+
+    if (e1 || e2) {
+      status.className = 'save-status err';
+      status.textContent = 'Could not save: ' + ((e1 && e1.message) || (e2 && e2.message));
+    } else {
+      status.textContent = 'Saved.';
+    }
+  }
+
+  async function checkSession() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) {
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      loadMyEvent();
+    }
+  }
+
+  sb.auth.onAuthStateChange((event, session) => {
+    if (session) {
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      loadMyEvent();
+    }
+  });
+
+  checkSession();
+</script>
+</body>
+</html>
