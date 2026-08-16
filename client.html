@@ -49,6 +49,15 @@
   .highlight .n { font-family: var(--font-display); font-size: 1.6rem; font-weight: 600; }
   .highlight .l { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
 
+  .steps-tracker { display: flex; gap: 4px; margin-bottom: 24px; flex-wrap: wrap; }
+  .step-pill {
+    flex: 1; min-width: 100px; text-align: center; padding: 8px 6px; border-radius: 8px; font-size: 0.72rem;
+    font-weight: 600; background: #eee; color: var(--muted); border: 1px solid var(--line);
+  }
+  .step-pill.done { background: #dde6df; color: var(--good); border-color: #c3d6c7; }
+  .step-pill.current { background: #eee2cf; color: var(--gold-dark); border-color: var(--gold); }
+  @media (max-width: 600px) { .steps-tracker { flex-direction: column; } .step-pill { min-width: 0; } }
+
   .save-bar { display: flex; align-items: center; gap: 14px; margin-top: 20px; }
   .save-btn { padding: 11px 24px; border-radius: 8px; border: none; background: var(--gold); color: var(--ink); font-weight: 600; cursor: pointer; font-family: var(--font-body); font-size: 0.9rem; }
   .save-btn:hover { background: var(--gold-dark); color: white; }
@@ -86,13 +95,15 @@
       <div class="l">Amount raised so far</div>
     </div>
 
+    <div class="section-title">Where things stand</div>
+    <div class="steps-tracker" id="steps-tracker"></div>
+
     <div class="section-title">Event details</div>
     <div class="form-grid">
       <div class="field"><label>Event date</label><div class="readonly" id="v-event_date">—</div></div>
       <div class="field"><label>Venue</label><input type="text" id="f-venue"></div>
       <div class="field"><label>Guest count</label><input type="number" id="f-guest_count"></div>
       <div class="field"><label>Bidding software</label><input type="text" id="f-bidding_software"></div>
-      <div class="field span2"><label>Contract status</label><div class="readonly" id="v-contract_status">—</div></div>
     </div>
 
     <div class="section-title">Your contact info</div>
@@ -145,7 +156,7 @@
 
     const { data: eventRows, error: eErr } = await sb
       .from('events')
-      .select('id, name, event_date, venue, guest_count, contract_status, bidding_software, amount_raised')
+      .select('id, name, event_date, venue, guest_count, bidding_software, amount_raised, contract_sent, contract_signed, deposit_amount, fee_paid_in_full')
       .eq('client_id', client.id)
       .order('event_date', { ascending: false })
       .limit(1);
@@ -160,14 +171,33 @@
     document.getElementById('event-title').textContent = client.name || 'Your Event';
     document.getElementById('raised-amt').textContent = ev.amount_raised ? '$' + Number(ev.amount_raised).toLocaleString() : '—';
     document.getElementById('v-event_date').textContent = ev.event_date || '—';
-    document.getElementById('v-contract_status').textContent = ev.contract_status || '—';
     document.getElementById('v-contact_email').textContent = client.contact_email || '—';
     document.getElementById('f-venue').value = ev.venue || '';
     document.getElementById('f-guest_count').value = ev.guest_count ?? '';
     document.getElementById('f-bidding_software').value = ev.bidding_software || '';
     document.getElementById('f-contact_name').value = client.contact_name || '';
 
+    renderStepsTracker(ev);
+
     document.getElementById('event-content').style.display = 'block';
+  }
+
+  function renderStepsTracker(ev) {
+    const eventPassed = ev.event_date && new Date(ev.event_date) < new Date();
+    const steps = [
+      { label: 'Contract sent', done: !!ev.contract_sent },
+      { label: 'Contract signed', done: !!ev.contract_signed },
+      { label: 'Deposit received', done: !!ev.deposit_amount },
+      { label: 'Event held', done: !!eventPassed },
+      { label: 'Paid in full', done: !!ev.fee_paid_in_full },
+    ];
+    let currentSet = false;
+    document.getElementById('steps-tracker').innerHTML = steps.map(s => {
+      let cls = 'step-pill';
+      if (s.done) cls += ' done';
+      else if (!currentSet) { cls += ' current'; currentSet = true; }
+      return `<div class="${cls}">${s.done ? '✓ ' : ''}${s.label}</div>`;
+    }).join('');
   }
 
   async function saveChanges() {
