@@ -231,12 +231,15 @@
     </nav>
   </header>
 
+  <div id="loading">Loading events…</div>
+  <div id="error" style="display:none;"></div>
+
+  <div class="year-tabs" id="yearTabs"></div>
+
   <div id="view-overview"></div>
 
   <div id="view-events" style="display:none;">
   <div class="stats" id="stats"></div>
-
-  <div class="year-tabs" id="yearTabs"></div>
 
   <div class="controls">
     <input type="text" id="search" placeholder="Search by client or event name…" oninput="render()">
@@ -245,8 +248,6 @@
     </select>
   </div>
 
-  <div id="loading">Loading events…</div>
-  <div id="error" style="display:none;"></div>
   <div id="empty" style="display:none;">No events match your filters.</div>
   <table id="table" style="display:none;">
     <thead>
@@ -435,23 +436,25 @@
     document.querySelectorAll('.year-tab').forEach(t => t.classList.remove('active'));
     btn.classList.add('active');
     render();
+    buildOverview();
   }
 
   function buildOverview() {
-    const withFee = allEvents.filter(e => e.fee != null);
+    const scoped = selectedYear ? allEvents.filter(e => e.year === selectedYear) : allEvents;
+    const withFee = scoped.filter(e => e.fee != null);
     const totalContracted = withFee.reduce((s, e) => s + Number(e.fee || 0), 0);
-    const totalDeposits = allEvents.reduce((s, e) => s + Number(e.deposit_amount || 0), 0);
+    const totalDeposits = scoped.reduce((s, e) => s + Number(e.deposit_amount || 0), 0);
     const notPaid = withFee.filter(e => !e.fee_paid_in_full);
     const totalOutstanding = notPaid.reduce((s, e) => {
       const remaining = Number(e.fee || 0) - Number(e.deposit_amount || 0);
       return s + Math.max(remaining, 0);
     }, 0);
-    const signedCount = allEvents.filter(e => e.contract_signed).length;
-    const sentNotSignedCount = allEvents.filter(e => e.contract_sent && !e.contract_signed).length;
-    const notSentCount = allEvents.filter(e => !e.contract_sent).length;
+    const signedCount = scoped.filter(e => e.contract_signed).length;
+    const sentNotSignedCount = scoped.filter(e => e.contract_sent && !e.contract_signed).length;
+    const notSentCount = scoped.filter(e => !e.contract_sent).length;
 
     const html = `
-      <div class="dash-section-title">Financial snapshot</div>
+      <div class="dash-section-title">Financial snapshot${selectedYear ? ' — ' + selectedYear : ''}</div>
       <div class="dash-grid">
         <div class="dash-card warn"><div class="n">$${totalOutstanding.toLocaleString()}</div><div class="l">Outstanding balance</div></div>
         <div class="dash-card good"><div class="n">$${totalDeposits.toLocaleString()}</div><div class="l">Deposits collected</div></div>
@@ -464,7 +467,7 @@
         <div class="dash-card good"><div class="n">${signedCount}</div><div class="l">Signed</div></div>
         <div class="dash-card warn"><div class="n">${sentNotSignedCount}</div><div class="l">Sent, awaiting signature</div></div>
         <div class="dash-card"><div class="n">${notSentCount}</div><div class="l">Not yet sent</div></div>
-        <div class="dash-card"><div class="n">${allEvents.length}</div><div class="l">Total events</div></div>
+        <div class="dash-card"><div class="n">${scoped.length}</div><div class="l">Total events</div></div>
       </div>
 
       <div class="dash-section-title">Events with an outstanding balance</div>
