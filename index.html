@@ -648,7 +648,7 @@
     currentClientId = data.client_id;
 
     document.getElementById('detail-client').textContent = data.clients ? data.clients.name : 'Unknown client';
-    document.getElementById('detail-eventname').textContent = data.name || '';
+    document.getElementById('detail-eventname').textContent = (data.name || '') + (data.id ? ' · Event ID: ' + data.id.slice(0, 8) : '');
 
     setVal('f-event_date', data.event_date);
     setVal('f-venue', data.venue);
