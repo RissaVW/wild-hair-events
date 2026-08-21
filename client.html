@@ -35,6 +35,7 @@
   header.top { margin-bottom: 20px; display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 12px; }
   .eyebrow { text-transform: uppercase; letter-spacing: 2px; font-size: 0.72rem; color: var(--gold-dark); font-weight: 600; }
   h1.event-title { font-family: var(--font-display); font-weight: 600; font-size: 1.8rem; margin: 4px 0 0; }
+  .event-subline { font-size: 0.85rem; color: var(--muted); margin-top: 2px; }
   #logout { font-size: 0.82rem; color: var(--muted); cursor: pointer; text-decoration: underline; }
 
   /* ---- Tabs ---- */
@@ -112,8 +113,9 @@
 <div id="app">
   <header class="top">
     <div>
-      <div class="eyebrow">Wild Hair Auctions</div>
+      <div class="eyebrow" id="client-org-name">Wild Hair Auctions</div>
       <h1 class="event-title" id="event-title">Your Event</h1>
+      <div class="event-subline" id="event-subline"></div>
     </div>
     <span id="logout" onclick="logout()">Log out</span>
   </header>
@@ -161,11 +163,6 @@
         <div class="field"><label>Contact name</label><input type="text" id="f-contact_name"></div>
         <div class="field"><label>Contact email</label><div class="readonly" id="v-contact_email">—</div></div>
       </div>
-
-      <div class="save-bar">
-        <button class="save-btn" onclick="saveOverview()">Save changes</button>
-        <span class="save-status" id="save-status-overview"></span>
-      </div>
     </div>
 
     <!-- RUN OF SHOW TAB -->
@@ -177,20 +174,12 @@
           <textarea id="f-run_of_show" style="min-height: 320px;"></textarea>
         </div>
       </div>
-      <div class="save-bar">
-        <button class="save-btn" onclick="saveRunOfShow()">Save changes</button>
-        <span class="save-status" id="save-status-runofshow"></span>
-      </div>
     </div>
 
     <!-- LIVE AUCTION ITEMS TAB -->
     <div class="tab-panel" id="tab-auctionitems">
       <div class="section-title">Live Auction Items</div>
       <div id="auction-items-list"></div>
-      <div class="save-bar">
-        <button class="save-btn" onclick="saveAuctionItems()">Save changes</button>
-        <span class="save-status" id="save-status-auctionitems"></span>
-      </div>
     </div>
 
     <!-- PADDLE RAISE TAB -->
@@ -203,10 +192,12 @@
         <tbody id="paddle-tbody"></tbody>
       </table>
       <div class="paddle-total" id="paddle-total"></div>
-      <div class="save-bar">
-        <button class="save-btn" onclick="savePaddleRaise()">Save changes</button>
-        <span class="save-status" id="save-status-paddleraise"></span>
-      </div>
+    </div>
+
+    <div class="save-bar" style="position: sticky; bottom: 0; background: var(--paper); padding: 16px 0; border-top: 1px solid var(--line); margin-top: 30px;">
+      <button class="save-btn" onclick="saveAll()">Save changes</button>
+      <span class="save-status" id="save-status"></span>
+      <span style="font-size: 0.78rem; color: var(--muted);">Saves everything on every tab, not just the one you're viewing.</span>
     </div>
 
   </div>
@@ -280,7 +271,9 @@
     const ev = eventRows[0];
     currentEventId = ev.id;
 
-    document.getElementById('event-title').textContent = client.name || 'Your Event';
+    document.getElementById('client-org-name').textContent = client.name || 'Wild Hair Auctions';
+    document.getElementById('event-title').textContent = ev.name || 'Your Event';
+    document.getElementById('event-subline').textContent = (ev.event_date ? ev.event_date : '') + (ev.id ? ' · Event ID: ' + ev.id.slice(0, 8) : '');
     document.getElementById('raised-amt').textContent = ev.amount_raised ? '$' + Number(ev.amount_raised).toLocaleString() : '—';
     document.getElementById('v-event_date').textContent = ev.event_date || '—';
     document.getElementById('v-contact_email').textContent = client.contact_email || '—';
@@ -376,15 +369,31 @@
     document.getElementById('paddle-total').textContent = 'Subtotal: $' + total.toLocaleString();
   }
 
-  async function saveOverview() {
-    const status = document.getElementById('save-status-overview');
+  async function saveAll() {
+    const status = document.getElementById('save-status');
     status.className = 'save-status';
     status.textContent = 'Saving…';
+
+    const items = [];
+    for (let i = 0; i < 10; i++) {
+      items.push(document.getElementById('item-' + i).value || '');
+    }
+    const paddle_raise = {};
+    PADDLE_LEVELS.forEach(lvl => {
+      const count = Number(document.getElementById('paddle-count-' + lvl.key).value) || 0;
+      const amount = lvl.denom
+        ? count * lvl.denom
+        : (Number(document.getElementById('paddle-amt-' + lvl.key).value) || 0);
+      paddle_raise[lvl.key] = { count, amount };
+    });
 
     const eventUpdate = {
       venue: document.getElementById('f-venue').value || null,
       guest_count: document.getElementById('f-guest_count').value ? Number(document.getElementById('f-guest_count').value) : null,
       bidding_software: document.getElementById('f-bidding_software').value || null,
+      run_of_show: document.getElementById('f-run_of_show').value || null,
+      live_auction_items: items,
+      paddle_raise: paddle_raise,
     };
     const clientUpdate = {
       contact_name: document.getElementById('f-contact_name').value || null,
@@ -397,60 +406,7 @@
       status.className = 'save-status err';
       status.textContent = 'Could not save: ' + ((e1 && e1.message) || (e2 && e2.message));
     } else {
-      status.textContent = 'Saved.';
-    }
-  }
-
-  async function saveRunOfShow() {
-    const status = document.getElementById('save-status-runofshow');
-    status.className = 'save-status';
-    status.textContent = 'Saving…';
-    const { error } = await sb.from('events').update({
-      run_of_show: document.getElementById('f-run_of_show').value || null
-    }).eq('id', currentEventId);
-    if (error) {
-      status.className = 'save-status err';
-      status.textContent = 'Could not save: ' + error.message;
-    } else {
-      status.textContent = 'Saved.';
-    }
-  }
-
-  async function saveAuctionItems() {
-    const status = document.getElementById('save-status-auctionitems');
-    status.className = 'save-status';
-    status.textContent = 'Saving…';
-    const items = [];
-    for (let i = 0; i < 10; i++) {
-      items.push(document.getElementById('item-' + i).value || '');
-    }
-    const { error } = await sb.from('events').update({ live_auction_items: items }).eq('id', currentEventId);
-    if (error) {
-      status.className = 'save-status err';
-      status.textContent = 'Could not save: ' + error.message;
-    } else {
-      status.textContent = 'Saved.';
-    }
-  }
-
-  async function savePaddleRaise() {
-    const status = document.getElementById('save-status-paddleraise');
-    status.className = 'save-status';
-    status.textContent = 'Saving…';
-    const paddle_raise = {};
-    PADDLE_LEVELS.forEach(lvl => {
-      const count = Number(document.getElementById('paddle-count-' + lvl.key).value) || 0;
-      const amount = lvl.denom
-        ? count * lvl.denom
-        : (Number(document.getElementById('paddle-amt-' + lvl.key).value) || 0);
-      paddle_raise[lvl.key] = { count, amount };
-    });
-    const { error } = await sb.from('events').update({ paddle_raise }).eq('id', currentEventId);
-    if (error) {
-      status.className = 'save-status err';
-      status.textContent = 'Could not save: ' + error.message;
-    } else {
-      status.textContent = 'Saved.';
+      status.textContent = 'Saved everything.';
     }
   }
 
