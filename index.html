@@ -164,6 +164,18 @@
   .save-status { font-size: 0.85rem; color: var(--good); }
   .save-status.err { color: #b04a4a; }
 
+  /* ---- Live auction items (admin) ---- */
+  .item-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; margin-bottom: 10px; }
+  .item-card label { font-family: var(--font-display); font-size: 0.95rem; display: block; margin-bottom: 6px; }
+  .item-card textarea { width: 100%; min-height: 60px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; font-family: var(--font-body); font-size: 0.9rem; background: var(--paper); }
+
+  /* ---- Paddle raise table (admin) ---- */
+  .paddle-table td { padding: 8px 14px; border-bottom: 1px solid var(--line); }
+  .paddle-table tr:last-child td { border-bottom: none; }
+  .paddle-table input { width: 100%; padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; font-family: var(--font-body); font-size: 0.9rem; background: var(--paper); }
+  .paddle-table .denom-label { font-weight: 600; }
+  .paddle-table .amt-readonly { padding: 7px 10px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
   /* ---- Mobile card view for the events table ---- */
   .mobile-cards { display: none; }
   .event-card {
@@ -312,6 +324,27 @@
       <div class="field"><label>Contact email</label><input type="email" id="f-contact_email"></div>
       <div class="field"><label>1099 received</label><input type="text" id="f-tax_form_status"></div>
     </div>
+
+    <div class="section-title">Run of Show</div>
+    <div class="form-grid">
+      <div class="field span2"><label>Paste the full run of show here</label><textarea id="f-run_of_show" style="min-height: 200px;"></textarea></div>
+    </div>
+
+    <div class="section-title">Live Auction Items</div>
+    <div id="admin-auction-items-list"></div>
+
+    <div class="section-title">Paddle Raise</div>
+    <table class="paddle-table" style="width:100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden;">
+      <thead>
+        <tr>
+          <th style="text-align:left; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.7px; color:var(--muted); padding:10px 14px; border-bottom:1px solid var(--line);">Level</th>
+          <th style="text-align:left; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.7px; color:var(--muted); padding:10px 14px; border-bottom:1px solid var(--line);"># of Donations</th>
+          <th style="text-align:left; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.7px; color:var(--muted); padding:10px 14px; border-bottom:1px solid var(--line);">$ Amount</th>
+        </tr>
+      </thead>
+      <tbody id="admin-paddle-tbody"></tbody>
+    </table>
+    <div style="text-align:right; font-family: var(--font-display); font-size: 1.2rem; font-weight: 600; padding: 14px;" id="admin-paddle-total"></div>
 
     <div class="save-bar">
       <button class="save-btn" id="save-btn" onclick="saveEvent()">Save changes</button>
@@ -600,6 +633,7 @@
         id, name, event_date, venue, guest_count, bidding_software,
         bid_sheets_status, bid_cards_status, fee, commission_rate, actual, expenses, amount_raised,
         contract_sent, contract_signed, deposit_amount, fee_paid_in_full,
+        run_of_show, live_auction_items, paddle_raise,
         client_id, clients ( id, name, contact_name, contact_email, tax_form_status )
       `)
       .eq('id', eventId)
@@ -636,14 +670,84 @@
     document.getElementById('f-contract_sent').checked = !!data.contract_sent;
     document.getElementById('f-contract_signed').checked = !!data.contract_signed;
     document.getElementById('f-fee_paid_in_full').checked = !!data.fee_paid_in_full;
+    setVal('f-run_of_show', data.run_of_show);
 
     renderStepsTracker(data);
+    renderAdminAuctionItems(data.live_auction_items);
+    renderAdminPaddleRaise(data.paddle_raise);
 
     document.getElementById('save-status').textContent = '';
     document.getElementById('app').querySelector('header.top').style.display = 'none';
     document.getElementById('view-events').style.display = 'none';
     document.getElementById('detail').style.display = 'block';
     window.scrollTo(0, 0);
+  }
+
+  const PADDLE_LEVELS = [
+    { key: '10000', label: '$10,000', denom: 10000 },
+    { key: '5000', label: '$5,000', denom: 5000 },
+    { key: '2500', label: '$2,500', denom: 2500 },
+    { key: '1000', label: '$1,000', denom: 1000 },
+    { key: '750', label: '$750', denom: 750 },
+    { key: '500', label: '$500', denom: 500 },
+    { key: '250', label: '$250', denom: 250 },
+    { key: '100', label: '$100', denom: 100 },
+    { key: 'paddle_drop', label: 'Paddle Drop', denom: null },
+  ];
+
+  function renderAdminAuctionItems(items) {
+    const arr = Array.isArray(items) && items.length === 10 ? items : ["","","","","","","","","",""];
+    document.getElementById('admin-auction-items-list').innerHTML = arr.map((val, i) => `
+      <div class="item-card">
+        <label>Item #${i + 1}</label>
+        <textarea id="admin-item-${i}">${escapeHtml(val)}</textarea>
+      </div>
+    `).join('');
+  }
+
+  function renderAdminPaddleRaise(data) {
+    const pr = data || {};
+    document.getElementById('admin-paddle-tbody').innerHTML = PADDLE_LEVELS.map(lvl => {
+      const row = pr[lvl.key] || { count: 0, amount: 0 };
+      if (lvl.denom) {
+        return `
+          <tr>
+            <td class="denom-label">${lvl.label}</td>
+            <td><input type="number" min="0" id="admin-paddle-count-${lvl.key}" value="${row.count || 0}" oninput="recalcAdminPaddleRow('${lvl.key}', ${lvl.denom})"></td>
+            <td><div class="amt-readonly" id="admin-paddle-amt-${lvl.key}">$${Number(row.amount || 0).toLocaleString()}</div></td>
+          </tr>
+        `;
+      } else {
+        return `
+          <tr>
+            <td class="denom-label">${lvl.label}</td>
+            <td><input type="number" min="0" id="admin-paddle-count-${lvl.key}" value="${row.count || 0}"></td>
+            <td><input type="number" min="0" step="0.01" id="admin-paddle-amt-${lvl.key}" value="${row.amount || 0}" oninput="updateAdminPaddleTotal()"></td>
+          </tr>
+        `;
+      }
+    }).join('');
+    updateAdminPaddleTotal();
+  }
+
+  function recalcAdminPaddleRow(key, denom) {
+    const count = Number(document.getElementById('admin-paddle-count-' + key).value) || 0;
+    const amount = count * denom;
+    document.getElementById('admin-paddle-amt-' + key).textContent = '$' + amount.toLocaleString();
+    updateAdminPaddleTotal();
+  }
+
+  function updateAdminPaddleTotal() {
+    let total = 0;
+    PADDLE_LEVELS.forEach(lvl => {
+      if (lvl.denom) {
+        const count = Number(document.getElementById('admin-paddle-count-' + lvl.key).value) || 0;
+        total += count * lvl.denom;
+      } else {
+        total += Number(document.getElementById('admin-paddle-amt-' + lvl.key).value) || 0;
+      }
+    });
+    document.getElementById('admin-paddle-total').textContent = 'Subtotal: $' + total.toLocaleString();
   }
 
   function renderStepsTracker(data) {
@@ -697,6 +801,19 @@
     status.className = 'save-status';
     status.textContent = 'Saving…';
 
+    const auctionItems = [];
+    for (let i = 0; i < 10; i++) {
+      auctionItems.push(document.getElementById('admin-item-' + i).value || '');
+    }
+    const paddleRaise = {};
+    PADDLE_LEVELS.forEach(lvl => {
+      const count = Number(document.getElementById('admin-paddle-count-' + lvl.key).value) || 0;
+      const amount = lvl.denom
+        ? count * lvl.denom
+        : (Number(document.getElementById('admin-paddle-amt-' + lvl.key).value) || 0);
+      paddleRaise[lvl.key] = { count, amount };
+    });
+
     const eventUpdate = {
       event_date: getVal('f-event_date'),
       venue: getVal('f-venue'),
@@ -714,6 +831,9 @@
       contract_signed: getChecked('f-contract_signed'),
       fee_paid_in_full: getChecked('f-fee_paid_in_full'),
       deposit_amount: getNum('f-deposit_amount'),
+      run_of_show: getVal('f-run_of_show'),
+      live_auction_items: auctionItems,
+      paddle_raise: paddleRaise,
     };
     const clientUpdate = {
       name: getVal('f-client_name'),
