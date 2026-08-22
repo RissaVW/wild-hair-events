@@ -91,6 +91,11 @@
   .item-card label { font-family: var(--font-display); font-size: 0.95rem; display: block; margin-bottom: 6px; }
   .item-card textarea { width: 100%; min-height: 60px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; font-family: var(--font-body); font-size: 0.9rem; background: var(--paper); }
 
+  .contact-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; margin-bottom: 10px; }
+  .contact-card .contact-num { font-family: var(--font-display); font-size: 0.95rem; margin-bottom: 10px; }
+  .contact-fields { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  @media (max-width: 600px) { .contact-fields { grid-template-columns: 1fr; } }
+
   /* ---- Paddle raise table ---- */
   .paddle-table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
   .paddle-table th { text-align: left; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.7px; color: var(--muted); padding: 10px 14px; border-bottom: 1px solid var(--line); }
@@ -151,6 +156,7 @@
 
     <div class="tab-nav">
       <button class="tab-btn active" onclick="showTab('overview', this)">Overview</button>
+      <button class="tab-btn" onclick="showTab('onboarding', this)">On-Boarding</button>
       <button class="tab-btn" onclick="showTab('runofshow', this)">Run of Show</button>
       <button class="tab-btn" onclick="showTab('auctionitems', this)">Live Auction Items</button>
       <button class="tab-btn" onclick="showTab('paddleraise', this)">Paddle Raise</button>
@@ -177,15 +183,53 @@
       <div class="form-grid">
         <div class="field"><label>Event date</label><div class="readonly" id="v-event_date">—</div></div>
         <div class="field"><label>Event time</label><input type="time" id="f-event_time"></div>
-        <div class="field"><label>Venue</label><input type="text" id="f-venue"></div>
-        <div class="field"><label>Guest count</label><input type="number" id="f-guest_count"></div>
-        <div class="field"><label>Bidding software</label><input type="text" id="f-bidding_software"></div>
       </div>
 
       <div class="section-title">Your contact info</div>
       <div class="form-grid">
         <div class="field"><label>Contact name</label><input type="text" id="f-contact_name"></div>
         <div class="field"><label>Contact email</label><div class="readonly" id="v-contact_email">—</div></div>
+      </div>
+    </div>
+
+    <!-- ON-BOARDING TAB -->
+    <div class="tab-panel" id="tab-onboarding">
+      <div class="section-title">Event Basics</div>
+      <div class="form-grid">
+        <div class="field span2"><label>Event Name</label><input type="text" id="ob-event_name"></div>
+        <div class="field span2"><label>Event Venue</label><input type="text" id="ob-venue"></div>
+        <div class="field"><label>Estimated # of Guests</label><input type="number" id="ob-guest_count"></div>
+        <div class="field"><label>$ Ticket Price</label><input type="number" step="0.01" id="ob-ticket_price"></div>
+      </div>
+
+      <div class="section-title">Event Contacts</div>
+      <div id="ob-contacts-list"></div>
+
+      <div class="section-title">Vendors &amp; Logistics</div>
+      <div class="form-grid">
+        <div class="field"><label>Bidding Software</label><input type="text" id="ob-bidding_software"></div>
+        <div class="field"><label>Check In / Check Out</label><input type="text" id="ob-check_in_out"></div>
+        <div class="field"><label>DJ / AV</label><input type="text" id="ob-dj_av"></div>
+        <div class="field"><label>Caterer</label><input type="text" id="ob-caterer"></div>
+        <div class="field"><label>Photographer</label><input type="text" id="ob-photographer"></div>
+        <div class="field"><label>Attire Theme</label><input type="text" id="ob-attire_theme"></div>
+      </div>
+
+      <div class="section-title">Video</div>
+      <div class="form-grid">
+        <div class="field"><label>Video Link</label><input type="text" id="ob-video_link" placeholder="https://..."></div>
+        <div class="field">
+          <label>Or Upload a Video File</label>
+          <input type="file" id="ob-video_file" accept="video/*">
+          <div id="ob-video-upload-status" style="font-size: 0.8rem; color: var(--muted); margin-top: 4px;"></div>
+          <div id="ob-video-current" style="font-size: 0.8rem; margin-top: 4px;"></div>
+        </div>
+      </div>
+
+      <div class="section-title">Key Dates</div>
+      <div class="form-grid">
+        <div class="field"><label>Volunteer Date</label><input type="date" id="ob-volunteer_date"></div>
+        <div class="field"><label>1st Consulting Meeting</label><input type="date" id="ob-first_consult_date"></div>
       </div>
     </div>
 
@@ -294,7 +338,7 @@
 
     const { data: eventRows, error: eErr } = await sb
       .from('events')
-      .select('id, name, event_date, event_time, venue, guest_count, bidding_software, amount_raised, contract_sent, contract_signed, deposit_amount, fee_paid_in_full, run_of_show, live_auction_items, paddle_raise')
+      .select('id, name, event_date, event_time, venue, guest_count, bidding_software, amount_raised, contract_sent, contract_signed, deposit_amount, fee_paid_in_full, run_of_show, live_auction_items, paddle_raise, event_contacts, ticket_price, check_in_out, dj_av, caterer, video_link, video_file_url, photographer, volunteer_date, first_consult_date, attire_theme')
       .eq('client_id', client.id)
       .order('event_date', { ascending: false })
       .limit(1);
@@ -317,17 +361,68 @@
     document.getElementById('v-event_date').textContent = ev.event_date || '—';
     document.getElementById('f-event_time').value = ev.event_time || '';
     document.getElementById('v-contact_email').textContent = client.contact_email || '—';
-    document.getElementById('f-venue').value = ev.venue || '';
-    document.getElementById('f-guest_count').value = ev.guest_count ?? '';
-    document.getElementById('f-bidding_software').value = ev.bidding_software || '';
     document.getElementById('f-contact_name').value = client.contact_name || '';
     document.getElementById('f-run_of_show').value = ev.run_of_show || '';
+
+    // On-Boarding tab fields
+    document.getElementById('ob-event_name').value = ev.name || '';
+    document.getElementById('ob-venue').value = ev.venue || '';
+    document.getElementById('ob-guest_count').value = ev.guest_count ?? '';
+    document.getElementById('ob-ticket_price').value = ev.ticket_price ?? '';
+    document.getElementById('ob-bidding_software').value = ev.bidding_software || '';
+    document.getElementById('ob-check_in_out').value = ev.check_in_out || '';
+    document.getElementById('ob-dj_av').value = ev.dj_av || '';
+    document.getElementById('ob-caterer').value = ev.caterer || '';
+    document.getElementById('ob-photographer').value = ev.photographer || '';
+    document.getElementById('ob-attire_theme').value = ev.attire_theme || '';
+    document.getElementById('ob-video_link').value = ev.video_link || '';
+    document.getElementById('ob-volunteer_date').value = ev.volunteer_date || '';
+    document.getElementById('ob-first_consult_date').value = ev.first_consult_date || '';
+    document.getElementById('ob-video-current').textContent = ev.video_file_url
+      ? 'Current uploaded file: ' + ev.video_file_url.split('/').pop()
+      : '';
+    renderContactCards(ev.event_contacts);
 
     renderDonut(ev);
     renderAuctionItems(ev.live_auction_items);
     renderPaddleRaise(ev.paddle_raise);
 
     document.getElementById('event-content').style.display = 'block';
+  }
+
+  function renderContactCards(contacts) {
+    const arr = Array.isArray(contacts) && contacts.length === 3
+      ? contacts
+      : [{name:'',title:'',email:'',phone:''},{name:'',title:'',email:'',phone:''},{name:'',title:'',email:'',phone:''}];
+    document.getElementById('ob-contacts-list').innerHTML = arr.map((c, i) => `
+      <div class="contact-card">
+        <div class="contact-num">Contact #${i + 1}</div>
+        <div class="contact-fields">
+          <div class="field"><label>Name</label><input type="text" id="ob-contact-${i}-name" value="${escapeHtml(c.name || '')}"></div>
+          <div class="field"><label>Title</label><input type="text" id="ob-contact-${i}-title" value="${escapeHtml(c.title || '')}"></div>
+          <div class="field"><label>Email Address</label><input type="email" id="ob-contact-${i}-email" value="${escapeHtml(c.email || '')}"></div>
+          <div class="field"><label>Phone Number</label><input type="text" id="ob-contact-${i}-phone" value="${escapeHtml(c.phone || '')}"></div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function uploadVideoIfSelected(eventId) {
+    const fileInput = document.getElementById('ob-video_file');
+    const file = fileInput.files[0];
+    if (!file) return null;
+
+    const statusEl = document.getElementById('ob-video-upload-status');
+    statusEl.textContent = 'Uploading video…';
+    const path = eventId + '/' + Date.now() + '-' + file.name;
+    const { error: uploadErr } = await sb.storage.from('event-files').upload(path, file);
+    if (uploadErr) {
+      statusEl.textContent = 'Upload failed: ' + uploadErr.message;
+      return null;
+    }
+    const { data: urlData } = sb.storage.from('event-files').getPublicUrl(path);
+    statusEl.textContent = 'Video uploaded.';
+    return urlData.publicUrl;
   }
 
   function renderDonut(ev) {
@@ -427,15 +522,42 @@
       paddle_raise[lvl.key] = { count, amount };
     });
 
+    const event_contacts = [];
+    for (let i = 0; i < 3; i++) {
+      event_contacts.push({
+        name: document.getElementById('ob-contact-' + i + '-name').value || '',
+        title: document.getElementById('ob-contact-' + i + '-title').value || '',
+        email: document.getElementById('ob-contact-' + i + '-email').value || '',
+        phone: document.getElementById('ob-contact-' + i + '-phone').value || '',
+      });
+    }
+
+    // Upload a new video file if one was selected, before writing the rest
+    const uploadedUrl = await uploadVideoIfSelected(currentEventId);
+
     const eventUpdate = {
-      venue: document.getElementById('f-venue').value || null,
+      name: document.getElementById('ob-event_name').value || null,
+      venue: document.getElementById('ob-venue').value || null,
       event_time: document.getElementById('f-event_time').value || null,
-      guest_count: document.getElementById('f-guest_count').value ? Number(document.getElementById('f-guest_count').value) : null,
-      bidding_software: document.getElementById('f-bidding_software').value || null,
+      guest_count: document.getElementById('ob-guest_count').value ? Number(document.getElementById('ob-guest_count').value) : null,
+      bidding_software: document.getElementById('ob-bidding_software').value || null,
+      ticket_price: document.getElementById('ob-ticket_price').value ? Number(document.getElementById('ob-ticket_price').value) : null,
+      check_in_out: document.getElementById('ob-check_in_out').value || null,
+      dj_av: document.getElementById('ob-dj_av').value || null,
+      caterer: document.getElementById('ob-caterer').value || null,
+      photographer: document.getElementById('ob-photographer').value || null,
+      attire_theme: document.getElementById('ob-attire_theme').value || null,
+      video_link: document.getElementById('ob-video_link').value || null,
+      volunteer_date: document.getElementById('ob-volunteer_date').value || null,
+      first_consult_date: document.getElementById('ob-first_consult_date').value || null,
+      event_contacts: event_contacts,
       run_of_show: document.getElementById('f-run_of_show').value || null,
       live_auction_items: items,
       paddle_raise: paddle_raise,
     };
+    if (uploadedUrl) {
+      eventUpdate.video_file_url = uploadedUrl;
+    }
     const clientUpdate = {
       contact_name: document.getElementById('f-contact_name').value || null,
     };
