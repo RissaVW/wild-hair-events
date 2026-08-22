@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wild Hair Auctions — Staff</title>
+<style>
+  :root {
+    --ink: #1c2024; --paper: #faf8f4; --panel: #ffffff; --line: #e4dfd6;
+    --gold: #b8863f; --gold-dark: #8f6528; --muted: #6b6459; --good: #3f7a4f;
+    --font-display: 'Fraunces', Georgia, serif;
+    --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600&display=swap');
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font-body); }
+
+  #gate {
+    position: fixed; inset: 0; background: var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 50; flex-direction: column; gap: 18px;
+  }
+  #gate h1 { color: var(--paper); font-family: var(--font-display); font-weight: 600; font-size: 1.6rem; margin: 0; }
+  #gate input { padding: 12px 16px; font-size: 1rem; border-radius: 8px; border: none; width: 220px; text-align: center; letter-spacing: 3px; }
+  #gate button { padding: 10px 22px; border-radius: 8px; border: none; background: var(--gold); color: var(--ink); font-weight: 600; cursor: pointer; font-family: var(--font-body); }
+  #gate button:hover { background: var(--gold-dark); color: white; }
+  #gate .err { color: #e08080; font-size: 0.85rem; height: 1em; }
+
+  #app { display: none; max-width: 900px; margin: 0 auto; padding: 40px 24px 80px; }
+  header.top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 28px; flex-wrap: wrap; gap: 12px; }
+  header.top .eyebrow { text-transform: uppercase; letter-spacing: 2px; font-size: 0.72rem; color: var(--gold-dark); font-weight: 600; margin-bottom: 4px; }
+  .brand-logo { height: 48px; width: auto; display: block; margin-bottom: 8px; }
+
+  .controls { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+  .controls input { padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); font-family: var(--font-body); font-size: 0.9rem; flex: 1; min-width: 200px; }
+
+  .year-tabs { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+  .year-tab { padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--muted); font-size: 0.82rem; font-weight: 600; cursor: pointer; font-family: var(--font-body); }
+  .year-tab.active { background: var(--gold); color: var(--ink); border-color: var(--gold); }
+
+  .event-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; margin-bottom: 10px; cursor: pointer; }
+  .event-card:hover { background: #fbf6ee; }
+  .event-card .client-name { font-weight: 600; }
+  .event-card .sub { font-size: 0.82rem; color: var(--muted); margin-top: 4px; }
+
+  .back-link { display: inline-flex; align-items: center; gap: 6px; color: var(--gold-dark); font-weight: 600; font-size: 0.85rem; text-decoration: none; cursor: pointer; margin-bottom: 20px; }
+  .back-link:hover { color: var(--ink); }
+  .detail-header { margin-bottom: 24px; }
+  .detail-header h2 { font-family: var(--font-display); font-size: 1.7rem; margin: 0 0 4px; }
+  .detail-header .sub { color: var(--muted); font-size: 0.9rem; }
+
+  .tab-nav { display: flex; gap: 8px; margin: 20px 0 24px; flex-wrap: wrap; }
+  .tab-btn { padding: 9px 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--muted); font-family: var(--font-body); font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+  .tab-btn.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .tab-btn:hover:not(.active) { border-color: var(--gold); color: var(--ink); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .section-title { font-family: var(--font-display); font-size: 1.05rem; margin: 26px 0 10px; }
+  .section-title:first-child { margin-top: 0; }
+  .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px; }
+  @media (max-width: 600px) { .info-grid { grid-template-columns: 1fr; } }
+  .info-field label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.7px; color: var(--muted); font-weight: 600; display: block; margin-bottom: 4px; }
+  .info-field .val { font-size: 0.95rem; }
+  .info-field .val.empty { color: var(--muted); font-style: italic; }
+
+  .readonly-block { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px; white-space: pre-wrap; font-size: 0.92rem; min-height: 60px; }
+  .item-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; margin-bottom: 10px; }
+  .item-card label { font-family: var(--font-display); font-size: 0.95rem; display: block; margin-bottom: 6px; }
+
+  .paddle-table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .paddle-table th { text-align: left; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.7px; color: var(--muted); padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  .paddle-table td { padding: 8px 14px; border-bottom: 1px solid var(--line); }
+  .paddle-table tr:last-child td { border-bottom: none; }
+
+  .contact-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; margin-bottom: 10px; }
+  .contact-card .contact-num { font-family: var(--font-display); font-size: 0.95rem; margin-bottom: 10px; }
+  .contact-fields { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  @media (max-width: 600px) { .contact-fields { grid-template-columns: 1fr; } }
+  .contact-fields input { padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; font-family: var(--font-body); font-size: 0.9rem; background: var(--paper); width: 100%; }
+  .contact-fields label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.7px; color: var(--muted); font-weight: 600; display: block; margin-bottom: 4px; }
+
+  textarea.debrief-input { width: 100%; min-height: 240px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; font-family: var(--font-body); font-size: 0.92rem; background: var(--panel); }
+
+  .save-bar { display: flex; align-items: center; gap: 14px; margin-top: 20px; }
+  .save-btn { padding: 11px 24px; border-radius: 8px; border: none; background: var(--gold); color: var(--ink); font-weight: 600; cursor: pointer; font-family: var(--font-body); font-size: 0.9rem; }
+  .save-btn:hover { background: var(--gold-dark); color: white; }
+  .save-status { font-size: 0.85rem; color: var(--good); }
+  .save-status.err { color: #b04a4a; }
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <h1>Wild Hair Auctions — Staff</h1>
+  <div><input id="passcode-input" type="password" placeholder="Passcode" autocomplete="off" /></div>
+  <button onclick="checkPasscode()">Enter</button>
+  <div class="err" id="gate-err"></div>
+</div>
+
+<div id="app">
+  <div id="view-list">
+    <header class="top">
+      <div>
+        <img src="wild-hair-logo.webp" alt="Wild Hair Auctions" class="brand-logo">
+        <div class="eyebrow">Wild Hair Auctions</div>
+        <h1 style="font-family: var(--font-display); font-size: 1.8rem; margin: 4px 0 0;">Your Events</h1>
+      </div>
+    </header>
+
+    <div class="year-tabs" id="yearTabs"></div>
+    <div class="controls">
+      <input type="text" id="search" placeholder="Search by client or event name…" oninput="renderList()">
+    </div>
+    <div id="events-list"></div>
+  </div>
+
+  <div id="view-detail" style="display:none;">
+    <a class="back-link" onclick="showList()">&larr; Back to events</a>
+    <div class="detail-header">
+      <h2 id="detail-client"></h2>
+      <div class="sub" id="detail-eventname"></div>
+    </div>
+
+    <div class="tab-nav">
+      <button class="tab-btn active" onclick="showTab('eventinfo', this)">Event Day Info</button>
+      <button class="tab-btn" onclick="showTab('runofshow', this)">Run of Show</button>
+      <button class="tab-btn" onclick="showTab('auctionitems', this)">Live Auction Items</button>
+      <button class="tab-btn" onclick="showTab('paddleraise', this)">Paddle Raise</button>
+      <button class="tab-btn" onclick="showTab('revgen', this)">Revenue Generators</button>
+      <button class="tab-btn" onclick="showTab('eventcontact', this)">Event Contact</button>
+      <button class="tab-btn" onclick="showTab('vendorcontacts', this)">Vendor Contacts</button>
+      <button class="tab-btn" onclick="showTab('debrief', this)">Debrief Notes</button>
+    </div>
+
+    <!-- EVENT DAY INFO (read-only) -->
+    <div class="tab-panel active" id="tab-eventinfo">
+      <div class="section-title">Event Day Info</div>
+      <div class="info-grid">
+        <div class="info-field"><label>Location</label><div class="val" id="di-venue">—</div></div>
+        <div class="info-field"><label>Call Time (staff arrival)</label><div class="val" id="di-call_time">—</div></div>
+        <div class="info-field"><label>Event Time</label><div class="val" id="di-event_time">—</div></div>
+        <div class="info-field"><label>Attire</label><div class="val" id="di-attire">—</div></div>
+        <div class="info-field"><label>Staff Meal?</label><div class="val" id="di-staff_meal">—</div></div>
+        <div class="info-field"><label>Food Notes</label><div class="val" id="di-staff_meal_notes">—</div></div>
+      </div>
+    </div>
+
+    <!-- RUN OF SHOW (read-only) -->
+    <div class="tab-panel" id="tab-runofshow">
+      <div class="section-title">Run of Show</div>
+      <div class="readonly-block" id="ro-run_of_show">—</div>
+    </div>
+
+    <!-- LIVE AUCTION ITEMS (read-only) -->
+    <div class="tab-panel" id="tab-auctionitems">
+      <div class="section-title">Live Auction Items</div>
+      <div id="ro-auction-items-list"></div>
+    </div>
+
+    <!-- PADDLE RAISE (read-only) -->
+    <div class="tab-panel" id="tab-paddleraise">
+      <div class="section-title">Paddle Raise</div>
+      <table class="paddle-table">
+        <thead><tr><th>Level</th><th># of Donations</th><th>$ Amount</th></tr></thead>
+        <tbody id="ro-paddle-tbody"></tbody>
+      </table>
+    </div>
+
+    <!-- REVENUE GENERATORS (read-only) -->
+    <div class="tab-panel" id="tab-revgen">
+      <div class="section-title">Revenue Generators</div>
+      <div class="info-grid">
+        <div class="info-field"><label>Which One</label><div class="val" id="ro-rg-type">—</div></div>
+        <div class="info-field"><label>$ Amount Charging</label><div class="val" id="ro-rg-amount">—</div></div>
+        <div class="info-field" style="grid-column: 1/-1;"><label>Notes</label><div class="val" id="ro-rg-notes">—</div></div>
+      </div>
+    </div>
+
+    <!-- EVENT CONTACT (read-only) -->
+    <div class="tab-panel" id="tab-eventcontact">
+      <div class="section-title">Primary Client Contact</div>
+      <div class="info-grid">
+        <div class="info-field"><label>Name</label><div class="val" id="ro-contact_name">—</div></div>
+        <div class="info-field"><label>Email</label><div class="val" id="ro-contact_email">—</div></div>
+      </div>
+      <div class="section-title">Event Contacts</div>
+      <div id="ro-event-contacts-list"></div>
+    </div>
+
+    <!-- VENDOR CONTACTS (editable) -->
+    <div class="tab-panel" id="tab-vendorcontacts">
+      <div class="section-title">Vendor Contacts</div>
+      <div id="vc-contacts-list"></div>
+      <div class="save-bar">
+        <button class="save-btn" onclick="saveVendorContacts()">Save Vendor Contacts</button>
+        <span class="save-status" id="save-status-vc"></span>
+      </div>
+    </div>
+
+    <!-- DEBRIEF NOTES (editable) -->
+    <div class="tab-panel" id="tab-debrief">
+      <div class="section-title">Debrief Notes</div>
+      <textarea class="debrief-input" id="debrief-notes" placeholder="Notes for after the event — what went well, what to change next time…"></textarea>
+      <div class="save-bar">
+        <button class="save-btn" onclick="saveDebriefNotes()">Save Debrief Notes</button>
+        <span class="save-status" id="save-status-debrief"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+  const SUPABASE_URL = "https://oooqjgpttzwwqaftlpbb.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9vb3FqZ3B0dHp3d3FhZnRscGJiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MTQxNzcsImV4cCI6MjEwMjM5MDE3N30.9-YYCxXgJ1GAUST7t9eTYS2phXx1qZwpTUqijsc5yGI";
+  const STAFF_PASSCODE = "wildhairstaff";
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const PADDLE_LEVELS = [
+    { key: '10000', label: '$10,000', denom: 10000 },
+    { key: '5000', label: '$5,000', denom: 5000 },
+    { key: '2500', label: '$2,500', denom: 2500 },
+    { key: '1000', label: '$1,000', denom: 1000 },
+    { key: '750', label: '$750', denom: 750 },
+    { key: '500', label: '$500', denom: 500 },
+    { key: '250', label: '$250', denom: 250 },
+    { key: '100', label: '$100', denom: 100 },
+    { key: 'paddle_drop', label: 'Paddle Drop', denom: null },
+  ];
+
+  function checkPasscode() {
+    const val = document.getElementById('passcode-input').value;
+    if (val === STAFF_PASSCODE) {
+      document.getElementById('gate').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      sessionStorage.setItem('wh_staff_authed', '1');
+      loadEvents();
+    } else {
+      document.getElementById('gate-err').textContent = 'Incorrect passcode.';
+    }
+  }
+  document.getElementById('passcode-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') checkPasscode();
+  });
+  if (sessionStorage.getItem('wh_staff_authed') === '1') {
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    loadEvents();
+  }
+
+  let allEvents = [];
+  let selectedYear = '';
+  let currentEventId = null;
+
+  async function loadEvents() {
+    const { data, error } = await sb
+      .from('events')
+      .select('id, event_date, venue, name, clients ( name )');
+    if (error) {
+      document.getElementById('events-list').innerHTML = 'Could not load events: ' + escapeHtml(error.message);
+      return;
+    }
+    allEvents = data.map(e => ({
+      ...e,
+      client: e.clients ? e.clients.name : '—',
+      year: e.event_date ? e.event_date.slice(0, 4) : ''
+    }));
+    buildYearTabs();
+    renderList();
+  }
+
+  function buildYearTabs() {
+    const years = [...new Set(allEvents.map(e => e.year).filter(Boolean))].sort().reverse();
+    const wrap = document.getElementById('yearTabs');
+    wrap.innerHTML = '';
+    const allTab = document.createElement('button');
+    allTab.className = 'year-tab active';
+    allTab.textContent = 'All years';
+    allTab.onclick = () => selectYear('', allTab);
+    wrap.appendChild(allTab);
+    years.forEach(y => {
+      const tab = document.createElement('button');
+      tab.className = 'year-tab';
+      tab.textContent = y;
+      tab.onclick = () => selectYear(y, tab);
+      wrap.appendChild(tab);
+    });
+  }
+
+  function selectYear(year, btn) {
+    selectedYear = year;
+    document.querySelectorAll('.year-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    renderList();
+  }
+
+  function renderList() {
+    const search = document.getElementById('search').value.toLowerCase();
+    let rows = allEvents.filter(e => {
+      const matchesSearch = !search || (e.client && e.client.toLowerCase().includes(search)) || (e.name && e.name.toLowerCase().includes(search));
+      const matchesYear = !selectedYear || e.year === selectedYear;
+      return matchesSearch && matchesYear;
+    });
+    rows.sort((a, b) => (a.event_date || '').localeCompare(b.event_date || ''));
+
+    const wrap = document.getElementById('events-list');
+    wrap.innerHTML = '';
+    rows.forEach(e => {
+      const card = document.createElement('div');
+      card.className = 'event-card';
+      card.innerHTML = `
+        <div class="client-name">${escapeHtml(e.client)}</div>
+        <div class="sub">${e.event_date || '—'}${e.venue ? ' · ' + escapeHtml(e.venue) : ''}</div>
+      `;
+      card.addEventListener('click', () => openDetail(e.id));
+      wrap.appendChild(card);
+    });
+  }
+
+  function showList() {
+    document.getElementById('view-detail').style.display = 'none';
+    document.getElementById('view-list').style.display = 'block';
+  }
+
+  function showTab(name, btn) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + name).classList.add('active');
+  }
+
+  async function openDetail(eventId) {
+    const { data, error } = await sb
+      .from('events')
+      .select(`
+        id, name, event_date, event_time, call_time, venue, attire_theme,
+        staff_meal, staff_meal_notes, run_of_show, live_auction_items, paddle_raise,
+        revenue_generator_type, revenue_generator_amount, revenue_generator_notes,
+        event_contacts, vendor_contacts, debrief_notes,
+        clients ( name, contact_name, contact_email )
+      `)
+      .eq('id', eventId)
+      .single();
+
+    if (error) {
+      alert('Could not load this event: ' + error.message);
+      return;
+    }
+    currentEventId = data.id;
+
+    document.getElementById('detail-client').textContent = data.clients ? data.clients.name : 'Unknown client';
+    document.getElementById('detail-eventname').textContent = data.name || '';
+
+    setDisplay('di-venue', data.venue);
+    setDisplay('di-call_time', data.call_time);
+    setDisplay('di-event_time', data.event_time);
+    setDisplay('di-attire', data.attire_theme);
+    document.getElementById('di-staff_meal').textContent = data.staff_meal === true ? 'Yes' : data.staff_meal === false ? 'No' : 'Not specified';
+    document.getElementById('di-staff_meal').className = 'val' + (data.staff_meal === null || data.staff_meal === undefined ? ' empty' : '');
+    setDisplay('di-staff_meal_notes', data.staff_meal_notes);
+
+    document.getElementById('ro-run_of_show').textContent = data.run_of_show || 'Nothing entered yet.';
+
+    renderReadonlyAuctionItems(data.live_auction_items);
+    renderReadonlyPaddleRaise(data.paddle_raise);
+
+    setDisplay('ro-rg-type', data.revenue_generator_type);
+    setDisplay('ro-rg-amount', data.revenue_generator_amount != null ? '$' + Number(data.revenue_generator_amount).toLocaleString() : null);
+    setDisplay('ro-rg-notes', data.revenue_generator_notes);
+
+    setDisplay('ro-contact_name', data.clients ? data.clients.contact_name : null);
+    setDisplay('ro-contact_email', data.clients ? data.clients.contact_email : null);
+    renderReadonlyEventContacts(data.event_contacts);
+
+    renderVendorContacts(data.vendor_contacts);
+    document.getElementById('debrief-notes').value = data.debrief_notes || '';
+
+    document.querySelectorAll('.tab-btn').forEach((btn, i) => btn.classList.toggle('active', i === 0));
+    document.querySelectorAll('.tab-panel').forEach((p, i) => p.classList.toggle('active', i === 0));
+
+    document.getElementById('view-list').style.display = 'none';
+    document.getElementById('view-detail').style.display = 'block';
+    window.scrollTo(0, 0);
+  }
+
+  function setDisplay(id, val) {
+    const el = document.getElementById(id);
+    if (val === null || val === undefined || val === '') {
+      el.textContent = 'Not specified';
+      el.className = 'val empty';
+    } else {
+      el.textContent = val;
+      el.className = 'val';
+    }
+  }
+
+  function renderReadonlyAuctionItems(items) {
+    const arr = Array.isArray(items) ? items : [];
+    const filled = arr.filter(v => v && v.trim());
+    const wrap = document.getElementById('ro-auction-items-list');
+    if (filled.length === 0) {
+      wrap.innerHTML = '<div class="val empty">Nothing entered yet.</div>';
+      return;
+    }
+    wrap.innerHTML = arr.map((val, i) => val && val.trim() ? `
+      <div class="item-card"><label>Item #${i + 1}</label><div>${escapeHtml(val)}</div></div>
+    ` : '').join('');
+  }
+
+  function renderReadonlyPaddleRaise(data) {
+    const pr = data || {};
+    document.getElementById('ro-paddle-tbody').innerHTML = PADDLE_LEVELS.map(lvl => {
+      const row = pr[lvl.key] || { count: 0, amount: 0 };
+      return `<tr><td>${lvl.label}</td><td>${row.count || 0}</td><td>$${Number(row.amount || 0).toLocaleString()}</td></tr>`;
+    }).join('');
+  }
+
+  function renderReadonlyEventContacts(contacts) {
+    const arr = Array.isArray(contacts) ? contacts : [];
+    const filled = arr.filter(c => c && (c.name || c.email || c.phone));
+    const wrap = document.getElementById('ro-event-contacts-list');
+    if (filled.length === 0) {
+      wrap.innerHTML = '<div class="val empty">No additional contacts entered yet.</div>';
+      return;
+    }
+    wrap.innerHTML = filled.map(c => `
+      <div class="item-card">
+        <label>${escapeHtml(c.name || 'Unnamed contact')}${c.title ? ' — ' + escapeHtml(c.title) : ''}</label>
+        <div>${escapeHtml(c.email || '')} ${c.phone ? '· ' + escapeHtml(c.phone) : ''}</div>
+      </div>
+    `).join('');
+  }
+
+  function renderVendorContacts(contacts) {
+    const arr = Array.isArray(contacts) && contacts.length === 5
+      ? contacts
+      : [{name:'',role:'',email:'',phone:''},{name:'',role:'',email:'',phone:''},{name:'',role:'',email:'',phone:''},{name:'',role:'',email:'',phone:''},{name:'',role:'',email:'',phone:''}];
+    document.getElementById('vc-contacts-list').innerHTML = arr.map((c, i) => `
+      <div class="contact-card">
+        <div class="contact-num">Vendor #${i + 1}</div>
+        <div class="contact-fields">
+          <div><label>Name</label><input type="text" id="vc-${i}-name" value="${escapeHtml(c.name || '')}"></div>
+          <div><label>Role</label><input type="text" id="vc-${i}-role" value="${escapeHtml(c.role || '')}" placeholder="DJ, Caterer, etc."></div>
+          <div><label>Email</label><input type="email" id="vc-${i}-email" value="${escapeHtml(c.email || '')}"></div>
+          <div><label>Phone</label><input type="text" id="vc-${i}-phone" value="${escapeHtml(c.phone || '')}"></div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function saveVendorContacts() {
+    const status = document.getElementById('save-status-vc');
+    status.className = 'save-status';
+    status.textContent = 'Saving…';
+    const vendor_contacts = [];
+    for (let i = 0; i < 5; i++) {
+      vendor_contacts.push({
+        name: document.getElementById('vc-' + i + '-name').value || '',
+        role: document.getElementById('vc-' + i + '-role').value || '',
+        email: document.getElementById('vc-' + i + '-email').value || '',
+        phone: document.getElementById('vc-' + i + '-phone').value || '',
+      });
+    }
+    const { error } = await sb.from('events').update({ vendor_contacts }).eq('id', currentEventId);
+    if (error) {
+      status.className = 'save-status err';
+      status.textContent = 'Could not save: ' + error.message;
+    } else {
+      status.textContent = 'Saved.';
+    }
+  }
+
+  async function saveDebriefNotes() {
+    const status = document.getElementById('save-status-debrief');
+    status.className = 'save-status';
+    status.textContent = 'Saving…';
+    const { error } = await sb.from('events').update({
+      debrief_notes: document.getElementById('debrief-notes').value || null
+    }).eq('id', currentEventId);
+    if (error) {
+      status.className = 'save-status err';
+      status.textContent = 'Could not save: ' + error.message;
+    } else {
+      status.textContent = 'Saved.';
+    }
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str || '';
+    return div.innerHTML;
+  }
+</script>
+</body>
+</html>
