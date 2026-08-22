@@ -312,7 +312,67 @@
 
     <div class="detail-tab-nav">
       <button class="detail-tab-btn active" onclick="showDetailTab('onboarding', this)">On-Boarding</button>
+      <button class="detail-tab-btn" onclick="showDetailTab('powerpoint', this)">PowerPoint</button>
+      <button class="detail-tab-btn" onclick="showDetailTab('revgen', this)">Revenue Generators</button>
+      <button class="detail-tab-btn" onclick="showDetailTab('prevstats', this)">Previous Statistics</button>
+      <button class="detail-tab-btn" onclick="showDetailTab('bidders', this)">Bidder Numbers</button>
       <button class="detail-tab-btn" onclick="showDetailTab('details', this)">Details</button>
+    </div>
+
+    <!-- POWERPOINT TAB -->
+    <div class="detail-tab-panel" id="detailtab-powerpoint">
+      <div class="section-title">PowerPoint</div>
+      <div class="form-grid">
+        <div class="field span2">
+          <label>Upload PowerPoint File</label>
+          <input type="file" id="pp-pptx_file" accept=".ppt,.pptx">
+          <div id="pp-upload-status" style="font-size: 0.8rem; color: var(--muted); margin-top: 4px;"></div>
+          <div id="pp-current" style="font-size: 0.8rem; margin-top: 4px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- REVENUE GENERATORS TAB -->
+    <div class="detail-tab-panel" id="detailtab-revgen">
+      <div class="section-title">Revenue Generators</div>
+      <div class="form-grid">
+        <div class="field"><label>Which One</label><input type="text" id="rg-type"></div>
+        <div class="field"><label>$ Amount Charging</label><input type="number" step="0.01" id="rg-amount"></div>
+        <div class="field span2"><label>Notes</label><textarea id="rg-notes" style="min-height: 100px;"></textarea></div>
+      </div>
+    </div>
+
+    <!-- PREVIOUS STATISTICS TAB -->
+    <div class="detail-tab-panel" id="detailtab-prevstats">
+      <div class="section-title">Previous Statistics</div>
+      <div class="form-grid">
+        <div class="field"><label># of Live Auction Items</label><input type="number" id="ps-item-count"></div>
+        <div class="field"><label>Live Auction Total</label><input type="number" step="0.01" id="ps-live-auction-total"></div>
+        <div class="field span2"><label>Total $ Raised</label><input type="number" step="0.01" id="ps-total-raised"></div>
+      </div>
+      <div class="section-title">Paddle Raise — Number of Donors</div>
+      <table class="paddle-table" style="width:100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden;">
+        <thead>
+          <tr>
+            <th style="text-align:left; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.7px; color:var(--muted); padding:10px 14px; border-bottom:1px solid var(--line);">Level</th>
+            <th style="text-align:left; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.7px; color:var(--muted); padding:10px 14px; border-bottom:1px solid var(--line);"># of Donors</th>
+          </tr>
+        </thead>
+        <tbody id="ps-paddle-tbody"></tbody>
+      </table>
+    </div>
+
+    <!-- BIDDER NUMBERS TAB -->
+    <div class="detail-tab-panel" id="detailtab-bidders">
+      <div class="section-title">Bidder Numbers</div>
+      <div class="form-grid">
+        <div class="field checkbox-field"><label><input type="checkbox" id="bn-include_logo"> Include Logo</label></div>
+        <div class="field checkbox-field"><label><input type="checkbox" id="bn-ordered"> Ordered</label></div>
+        <div class="field checkbox-field"><label><input type="checkbox" id="bn-delivered"> Delivered</label></div>
+        <div class="field"></div>
+        <div class="field"><label>Starting Number</label><input type="number" id="bn-start_number"></div>
+        <div class="field"><label>Ending Number</label><input type="number" id="bn-end_number"></div>
+      </div>
     </div>
 
     <!-- ON-BOARDING TAB -->
@@ -738,6 +798,9 @@
         run_of_show, live_auction_items, paddle_raise,
         event_contacts, ticket_price, check_in_out, dj_av, caterer, video_link, video_file_url,
         photographer, volunteer_date, first_consult_date, attire_theme,
+        pptx_file_url, revenue_generator_type, revenue_generator_amount, revenue_generator_notes,
+        prev_live_auction_items_count, prev_paddle_counts, prev_live_auction_total, prev_total_raised,
+        bidder_include_logo, bidder_start_number, bidder_end_number, bidder_ordered, bidder_delivered,
         client_id, clients ( id, name, contact_name, contact_email, tax_form_status )
       `)
       .eq('id', eventId)
@@ -792,20 +855,72 @@
       : '';
     renderContactCards(data.event_contacts);
 
+    // PowerPoint tab
+    document.getElementById('pp-current').textContent = data.pptx_file_url
+      ? 'Current uploaded file: ' + data.pptx_file_url.split('/').pop()
+      : '';
+
+    // Revenue Generators tab
+    setVal('rg-type', data.revenue_generator_type);
+    setVal('rg-amount', data.revenue_generator_amount);
+    setVal('rg-notes', data.revenue_generator_notes);
+
+    // Previous Statistics tab
+    setVal('ps-item-count', data.prev_live_auction_items_count);
+    setVal('ps-live-auction-total', data.prev_live_auction_total);
+    setVal('ps-total-raised', data.prev_total_raised);
+    renderPrevStatsPaddleCounts(data.prev_paddle_counts);
+
+    // Bidder Numbers tab
+    document.getElementById('bn-include_logo').checked = !!data.bidder_include_logo;
+    document.getElementById('bn-ordered').checked = !!data.bidder_ordered;
+    document.getElementById('bn-delivered').checked = !!data.bidder_delivered;
+    setVal('bn-start_number', data.bidder_start_number);
+    setVal('bn-end_number', data.bidder_end_number);
+
     renderStepsTracker(data);
     renderAdminAuctionItems(data.live_auction_items);
     renderAdminPaddleRaise(data.paddle_raise);
 
     // Always land back on the On-Boarding tab when opening an event
-    document.querySelectorAll('.detail-tab-btn').forEach((btn, i) => btn.classList.toggle('active', i === 0));
+    document.querySelectorAll('.detail-tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.detail-tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelector('.detail-tab-btn').classList.add('active');
     document.getElementById('detailtab-onboarding').classList.add('active');
-    document.getElementById('detailtab-details').classList.remove('active');
 
     document.getElementById('save-status').textContent = '';
     document.getElementById('app').querySelector('header.top').style.display = 'none';
     document.getElementById('view-events').style.display = 'none';
     document.getElementById('detail').style.display = 'block';
     window.scrollTo(0, 0);
+  }
+
+  function renderPrevStatsPaddleCounts(counts) {
+    const c = counts || {};
+    document.getElementById('ps-paddle-tbody').innerHTML = PADDLE_LEVELS.map(lvl => `
+      <tr>
+        <td class="denom-label">${lvl.label}</td>
+        <td><input type="number" min="0" id="ps-paddle-count-${lvl.key}" value="${(c[lvl.key] || 0)}"></td>
+      </tr>
+    `).join('');
+  }
+
+  async function uploadPptxIfSelected(eventId) {
+    const fileInput = document.getElementById('pp-pptx_file');
+    const file = fileInput.files[0];
+    if (!file) return null;
+
+    const statusEl = document.getElementById('pp-upload-status');
+    statusEl.textContent = 'Uploading PowerPoint…';
+    const path = eventId + '/' + Date.now() + '-' + file.name;
+    const { error: uploadErr } = await sb.storage.from('event-files').upload(path, file);
+    if (uploadErr) {
+      statusEl.textContent = 'Upload failed: ' + uploadErr.message;
+      return null;
+    }
+    const { data: urlData } = sb.storage.from('event-files').getPublicUrl(path);
+    statusEl.textContent = 'PowerPoint uploaded.';
+    return urlData.publicUrl;
   }
 
   function showDetailTab(name, btn) {
@@ -991,8 +1106,14 @@
       });
     }
 
-    // Upload a new video file if one was selected, before writing the rest
+    // Upload new files if selected, before writing the rest
     const uploadedUrl = await uploadVideoIfSelected(currentEventId);
+    const uploadedPptxUrl = await uploadPptxIfSelected(currentEventId);
+
+    const prevPaddleCounts = {};
+    PADDLE_LEVELS.forEach(lvl => {
+      prevPaddleCounts[lvl.key] = Number(document.getElementById('ps-paddle-count-' + lvl.key).value) || 0;
+    });
 
     const eventUpdate = {
       name: getVal('ob-event_name'),
@@ -1009,6 +1130,18 @@
       volunteer_date: getVal('ob-volunteer_date'),
       first_consult_date: getVal('ob-first_consult_date'),
       event_contacts: eventContacts,
+      revenue_generator_type: getVal('rg-type'),
+      revenue_generator_amount: getNum('rg-amount'),
+      revenue_generator_notes: getVal('rg-notes'),
+      prev_live_auction_items_count: getNum('ps-item-count'),
+      prev_paddle_counts: prevPaddleCounts,
+      prev_live_auction_total: getNum('ps-live-auction-total'),
+      prev_total_raised: getNum('ps-total-raised'),
+      bidder_include_logo: getChecked('bn-include_logo'),
+      bidder_ordered: getChecked('bn-ordered'),
+      bidder_delivered: getChecked('bn-delivered'),
+      bidder_start_number: getNum('bn-start_number'),
+      bidder_end_number: getNum('bn-end_number'),
       event_date: getVal('f-event_date'),
       event_time: getVal('f-event_time'),
       bid_sheets_status: getVal('f-bid_sheets_status'),
@@ -1028,6 +1161,9 @@
     };
     if (uploadedUrl) {
       eventUpdate.video_file_url = uploadedUrl;
+    }
+    if (uploadedPptxUrl) {
+      eventUpdate.pptx_file_url = uploadedPptxUrl;
     }
     const clientUpdate = {
       name: getVal('f-client_name'),
