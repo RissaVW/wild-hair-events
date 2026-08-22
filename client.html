@@ -32,7 +32,21 @@
   #login-msg { font-size: 0.85rem; min-height: 1.2em; color: #e0c080; }
 
   #app { display: none; max-width: 780px; margin: 0 auto; padding: 40px 20px 80px; }
-  header.top { margin-bottom: 20px; display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 12px; }
+  header.top { margin-bottom: 28px; display: grid; grid-template-columns: 1fr 2fr 1fr; align-items: start; gap: 16px; }
+  .header-left { display: flex; align-items: center; }
+  .header-center { text-align: center; }
+  .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+  .brand-logo-client { height: 60px; width: auto; }
+  .event-logo-placeholder {
+    width: 90px; height: 90px; border: 2px dashed var(--line); border-radius: 10px;
+    display: flex; align-items: center; justify-content: center; text-align: center;
+    color: var(--muted); font-size: 0.7rem; background: var(--panel);
+  }
+  @media (max-width: 700px) {
+    header.top { grid-template-columns: 1fr; text-align: center; }
+    .header-left { justify-content: center; }
+    .header-right { align-items: center; }
+  }
   .eyebrow { text-transform: uppercase; letter-spacing: 2px; font-size: 0.72rem; color: var(--gold-dark); font-weight: 600; }
   h1.event-title { font-family: var(--font-display); font-weight: 600; font-size: 1.8rem; margin: 4px 0 0; }
   .event-subline { font-size: 0.85rem; color: var(--muted); margin-top: 2px; }
@@ -112,12 +126,21 @@
 
 <div id="app">
   <header class="top">
-    <div>
+    <div class="header-col header-left">
+      <img src="wild-hair-logo.webp" alt="Wild Hair Auctions" class="brand-logo-client">
+    </div>
+    <div class="header-col header-center">
       <div class="eyebrow" id="client-org-name">Wild Hair Auctions</div>
       <h1 class="event-title" id="event-title">Your Event</h1>
       <div class="event-subline" id="event-subline"></div>
     </div>
-    <span id="logout" onclick="logout()">Log out</span>
+    <div class="header-col header-right">
+      <span id="logout" onclick="logout()">Log out</span>
+      <div id="logged-in-as" style="font-size: 0.7rem; color: var(--muted); margin-top: 4px;"></div>
+      <div class="event-logo-placeholder">
+        <span>Event Logo</span>
+      </div>
+    </div>
   </header>
 
   <div id="no-event" style="display:none;">
@@ -153,6 +176,7 @@
       <div class="section-title">Event details</div>
       <div class="form-grid">
         <div class="field"><label>Event date</label><div class="readonly" id="v-event_date">—</div></div>
+        <div class="field"><label>Event time</label><input type="time" id="f-event_time"></div>
         <div class="field"><label>Venue</label><input type="text" id="f-venue"></div>
         <div class="field"><label>Guest count</label><input type="number" id="f-guest_count"></div>
         <div class="field"><label>Bidding software</label><input type="text" id="f-bidding_software"></div>
@@ -249,9 +273,20 @@
   }
 
   async function loadMyEvent() {
-    const { data: clientRows, error: cErr } = await sb.from('clients').select('id, name, contact_name, contact_email').limit(1);
+    const { data: { user } } = await sb.auth.getUser();
+    const loggedInEmail = user ? user.email : '(no session found)';
+    document.getElementById('logged-in-as').textContent = 'Logged in as: ' + loggedInEmail;
+
+    const { data: clientRows, error: cErr } = await sb
+      .from('clients')
+      .select('id, name, contact_name, contact_email')
+      .ilike('contact_email', loggedInEmail)
+      .limit(1);
+
     if (cErr || !clientRows || clientRows.length === 0) {
       document.getElementById('no-event').style.display = 'block';
+      document.getElementById('no-event').innerHTML =
+        `We couldn't find an event linked to <strong>${escapeHtml(loggedInEmail)}</strong>. If this doesn't seem right, reach out to Wild Hair Auctions directly.`;
       return;
     }
     const client = clientRows[0];
@@ -259,7 +294,7 @@
 
     const { data: eventRows, error: eErr } = await sb
       .from('events')
-      .select('id, name, event_date, venue, guest_count, bidding_software, amount_raised, contract_sent, contract_signed, deposit_amount, fee_paid_in_full, run_of_show, live_auction_items, paddle_raise')
+      .select('id, name, event_date, event_time, venue, guest_count, bidding_software, amount_raised, contract_sent, contract_signed, deposit_amount, fee_paid_in_full, run_of_show, live_auction_items, paddle_raise')
       .eq('client_id', client.id)
       .order('event_date', { ascending: false })
       .limit(1);
@@ -273,9 +308,14 @@
 
     document.getElementById('client-org-name').textContent = client.name || 'Wild Hair Auctions';
     document.getElementById('event-title').textContent = ev.name || 'Your Event';
-    document.getElementById('event-subline').textContent = (ev.event_date ? ev.event_date : '') + (ev.id ? ' · Event ID: ' + ev.id.slice(0, 8) : '');
+    const sublineParts = [];
+    if (ev.event_date) sublineParts.push(ev.event_date);
+    if (ev.event_time) sublineParts.push(ev.event_time);
+    if (ev.venue) sublineParts.push(ev.venue);
+    document.getElementById('event-subline').textContent = sublineParts.join(' · ');
     document.getElementById('raised-amt').textContent = ev.amount_raised ? '$' + Number(ev.amount_raised).toLocaleString() : '—';
     document.getElementById('v-event_date').textContent = ev.event_date || '—';
+    document.getElementById('f-event_time').value = ev.event_time || '';
     document.getElementById('v-contact_email').textContent = client.contact_email || '—';
     document.getElementById('f-venue').value = ev.venue || '';
     document.getElementById('f-guest_count').value = ev.guest_count ?? '';
@@ -389,6 +429,7 @@
 
     const eventUpdate = {
       venue: document.getElementById('f-venue').value || null,
+      event_time: document.getElementById('f-event_time').value || null,
       guest_count: document.getElementById('f-guest_count').value ? Number(document.getElementById('f-guest_count').value) : null,
       bidding_software: document.getElementById('f-bidding_software').value || null,
       run_of_show: document.getElementById('f-run_of_show').value || null,
