@@ -117,6 +117,8 @@
   .dash-card .l { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-top: 2px; }
   .dash-card.warn .n { color: #b04a4a; }
   .dash-card.good .n { color: var(--good); }
+  .n.good-text { color: var(--good); }
+  .n.warn-text { color: #b04a4a; }
 
   .outstanding-list { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; margin-top: 4px; }
   .outstanding-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 0.88rem; }
@@ -294,6 +296,7 @@
     <div class="section-title">Event details</div>
     <div class="form-grid">
       <div class="field"><label>Event date</label><input type="date" id="f-event_date"></div>
+      <div class="field"><label>Event time</label><input type="time" id="f-event_time"></div>
       <div class="field"><label>Venue</label><input type="text" id="f-venue"></div>
       <div class="field"><label>Guest count</label><input type="number" id="f-guest_count"></div>
       <div class="field"><label>Bidding software</label><input type="text" id="f-bidding_software"></div>
@@ -484,11 +487,42 @@
       const remaining = Number(e.fee || 0) - Number(e.deposit_amount || 0);
       return s + Math.max(remaining, 0);
     }, 0);
+    const revenueEarned = totalContracted - totalOutstanding;
     const signedCount = scoped.filter(e => e.contract_signed).length;
     const sentNotSignedCount = scoped.filter(e => e.contract_sent && !e.contract_signed).length;
     const notSentCount = scoped.filter(e => !e.contract_sent).length;
 
+    // Dashboard-specific metrics
+    const amountRaisedScoped = scoped.reduce((s, e) => s + Number(e.amount_raised || 0), 0);
+    const today = new Date();
+    const remainingEventsCount = scoped.filter(e => e.event_date && new Date(e.event_date) >= today).length;
+
+    let yoyHtml = '<div class="n">—</div><div class="l">Select a specific year to compare</div>';
+    if (selectedYear) {
+      const prevYear = String(Number(selectedYear) - 1);
+      const prevYearEvents = allEvents.filter(e => e.year === prevYear);
+      const prevRaised = prevYearEvents.reduce((s, e) => s + Number(e.amount_raised || 0), 0);
+      if (prevRaised > 0) {
+        const pctChange = ((amountRaisedScoped - prevRaised) / prevRaised) * 100;
+        const sign = pctChange >= 0 ? '+' : '';
+        const cls = pctChange >= 0 ? 'good' : 'warn';
+        yoyHtml = `<div class="n ${cls}-text">${sign}${pctChange.toFixed(1)}%</div><div class="l">vs. ${prevYear}</div>`;
+      } else {
+        yoyHtml = `<div class="n">—</div><div class="l">No ${prevYear} data to compare</div>`;
+      }
+    }
+
     const html = `
+      <div class="dash-section-title">Dashboard${selectedYear ? ' — ' + selectedYear : ' — All Years'}</div>
+      <div class="dash-grid">
+        <div class="dash-card good"><div class="n">$${amountRaisedScoped.toLocaleString()}</div><div class="l">Amount raised</div></div>
+        <div class="dash-card good"><div class="n">$${revenueEarned.toLocaleString()}</div><div class="l">Revenue earned</div></div>
+        <div class="dash-card warn"><div class="n">$${totalOutstanding.toLocaleString()}</div><div class="l">Revenue outstanding</div></div>
+        <div class="dash-card"><div class="n">${scoped.length}</div><div class="l">Total events</div></div>
+        <div class="dash-card"><div class="n">${remainingEventsCount}</div><div class="l">Remaining events</div></div>
+        <div class="dash-card">${yoyHtml}</div>
+      </div>
+
       <div class="dash-section-title">Financial snapshot${selectedYear ? ' — ' + selectedYear : ''}</div>
       <div class="dash-grid">
         <div class="dash-card warn"><div class="n">$${totalOutstanding.toLocaleString()}</div><div class="l">Outstanding balance</div></div>
@@ -632,7 +666,7 @@
     const { data, error } = await sb
       .from('events')
       .select(`
-        id, name, event_date, venue, guest_count, bidding_software,
+        id, name, event_date, event_time, venue, guest_count, bidding_software,
         bid_sheets_status, bid_cards_status, fee, commission_rate, actual, expenses, amount_raised,
         contract_sent, contract_signed, deposit_amount, fee_paid_in_full,
         run_of_show, live_auction_items, paddle_raise,
@@ -653,6 +687,7 @@
     document.getElementById('detail-eventname').textContent = (data.name || '') + (data.id ? ' · Event ID: ' + data.id.slice(0, 8) : '');
 
     setVal('f-event_date', data.event_date);
+    setVal('f-event_time', data.event_time);
     setVal('f-venue', data.venue);
     setVal('f-guest_count', data.guest_count);
     setVal('f-bidding_software', data.bidding_software);
@@ -818,6 +853,7 @@
 
     const eventUpdate = {
       event_date: getVal('f-event_date'),
+      event_time: getVal('f-event_time'),
       venue: getVal('f-venue'),
       guest_count: getNum('f-guest_count'),
       bidding_software: getVal('f-bidding_software'),
