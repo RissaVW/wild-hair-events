@@ -1,39 +1,739 @@
--- On-Boarding tab: new fields + file storage setup for video uploads.
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wild Hair Auctions — Your Event</title>
+<style>
+  :root {
+    --ink: #1c2024; --paper: #faf8f4; --panel: #ffffff; --line: #e4dfd6;
+    --gold: #b8863f; --gold-dark: #8f6528; --muted: #6b6459; --good: #3f7a4f;
+    --font-display: 'Fraunces', Georgia, serif;
+    --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600&display=swap');
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font-body); }
 
-alter table events add column if not exists event_contacts jsonb default '[
-  {"name": "", "title": "", "email": "", "phone": ""},
-  {"name": "", "title": "", "email": "", "phone": ""},
-  {"name": "", "title": "", "email": "", "phone": ""}
-]'::jsonb;
+  #login-screen {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: var(--ink); flex-direction: column; gap: 18px; padding: 20px; text-align: center;
+  }
+  #login-screen h1 { color: var(--paper); font-family: var(--font-display); font-weight: 600; font-size: 1.7rem; margin: 0; }
+  #login-screen p { color: #c9c2b6; font-size: 0.9rem; max-width: 320px; margin: 0; }
+  #login-screen input {
+    padding: 12px 16px; font-size: 1rem; border-radius: 8px; border: none; width: 260px; text-align: center;
+  }
+  #login-screen button {
+    padding: 11px 24px; border-radius: 8px; border: none; background: var(--gold);
+    color: var(--ink); font-weight: 600; cursor: pointer; font-family: var(--font-body);
+  }
+  #login-screen button:hover { background: var(--gold-dark); color: white; }
+  #login-msg { font-size: 0.85rem; min-height: 1.2em; color: #e0c080; }
 
-alter table events add column if not exists ticket_price numeric;
-alter table events add column if not exists check_in_out text;
-alter table events add column if not exists dj_av text;
-alter table events add column if not exists caterer text;
-alter table events add column if not exists video_link text;
-alter table events add column if not exists video_file_url text;
-alter table events add column if not exists photographer text;
-alter table events add column if not exists volunteer_date date;
-alter table events add column if not exists first_consult_date date;
-alter table events add column if not exists attire_theme text;
+  #app { display: none; max-width: 780px; margin: 0 auto; padding: 40px 20px 80px; }
+  header.top { margin-bottom: 28px; display: grid; grid-template-columns: 1fr 2fr 1fr; align-items: start; gap: 16px; }
+  .header-left { display: flex; align-items: center; }
+  .header-center { text-align: center; }
+  .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+  .brand-logo-client { height: 60px; width: auto; }
+  .event-logo-placeholder {
+    width: 90px; height: 90px; border: 2px dashed var(--line); border-radius: 10px;
+    display: flex; align-items: center; justify-content: center; text-align: center;
+    color: var(--muted); font-size: 0.7rem; background: var(--panel);
+  }
+  @media (max-width: 700px) {
+    header.top { grid-template-columns: 1fr; text-align: center; }
+    .header-left { justify-content: center; }
+    .header-right { align-items: center; }
+  }
+  .eyebrow { text-transform: uppercase; letter-spacing: 2px; font-size: 0.72rem; color: var(--gold-dark); font-weight: 600; }
+  h1.event-title { font-family: var(--font-display); font-weight: 600; font-size: 1.8rem; margin: 4px 0 0; }
+  .event-subline { font-size: 0.85rem; color: var(--muted); margin-top: 2px; }
+  #logout { font-size: 0.82rem; color: var(--muted); cursor: pointer; text-decoration: underline; }
 
--- Backfill any existing rows so event_contacts isn't null
-update events set event_contacts = '[
-  {"name": "", "title": "", "email": "", "phone": ""},
-  {"name": "", "title": "", "email": "", "phone": ""},
-  {"name": "", "title": "", "email": "", "phone": ""}
-]'::jsonb where event_contacts is null;
+  /* ---- Tabs ---- */
+  .tab-nav { display: flex; gap: 6px; margin-bottom: 24px; flex-wrap: wrap; }
+  .tab-btn {
+    padding: 9px 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel);
+    color: var(--muted); font-family: var(--font-body); font-size: 0.84rem; font-weight: 600; cursor: pointer;
+  }
+  .tab-btn.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .tab-btn:hover:not(.active) { border-color: var(--gold); color: var(--ink); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
 
--- Storage bucket for uploaded video files (public bucket, so uploaded files
--- get a plain public URL without needing a signed link each time)
-insert into storage.buckets (id, name, public)
-values ('event-files', 'event-files', true)
-on conflict (id) do nothing;
+  .section-title { font-family: var(--font-display); font-size: 1.05rem; margin: 26px 0 10px; }
+  .section-title:first-child { margin-top: 0; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px; }
+  @media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field.span2 { grid-column: 1 / -1; }
+  .field label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.7px; color: var(--muted); font-weight: 600; }
+  .field input, .field textarea { padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; font-family: var(--font-body); font-size: 0.92rem; background: var(--paper); }
+  .field textarea { resize: vertical; }
+  .field .readonly { padding: 9px 12px; color: var(--ink); }
+  .highlight { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; margin-bottom: 18px; }
+  .highlight .n { font-family: var(--font-display); font-size: 1.6rem; font-weight: 600; }
+  .highlight .l { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
 
--- Allow the admin app (currently unauthenticated "anon" role, passcode-gated)
--- to upload and read files in this bucket.
-create policy "anon upload event files" on storage.objects
-  for insert to anon with check (bucket_id = 'event-files');
+  /* ---- Donut progress chart ---- */
+  .progress-wrap { display: flex; align-items: center; gap: 24px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px; margin-bottom: 24px; flex-wrap: wrap; }
+  .donut-pct { font-family: var(--font-display); font-size: 1.4rem; font-weight: 600; fill: var(--ink); }
+  .progress-legend { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 180px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.86rem; color: var(--muted); }
+  .legend-item.done { color: var(--ink); font-weight: 600; }
+  .legend-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--line); flex-shrink: 0; }
+  .legend-item.done .legend-dot { background: var(--good); }
 
-create policy "anon read event files" on storage.objects
-  for select to anon using (bucket_id = 'event-files');
+  /* ---- Live auction items ---- */
+  .item-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; margin-bottom: 10px; }
+  .item-card label { font-family: var(--font-display); font-size: 0.95rem; display: block; margin-bottom: 6px; }
+  .item-card textarea { width: 100%; min-height: 60px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; font-family: var(--font-body); font-size: 0.9rem; background: var(--paper); }
+
+  .contact-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; margin-bottom: 10px; }
+  .contact-card .contact-num { font-family: var(--font-display); font-size: 0.95rem; margin-bottom: 10px; }
+  .contact-fields { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  @media (max-width: 600px) { .contact-fields { grid-template-columns: 1fr; } }
+  .checkbox-field label { flex-direction: row; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0; font-size: 0.92rem; color: var(--ink); font-weight: 500; }
+  .checkbox-field input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--gold-dark); }
+
+  /* ---- Paddle raise table ---- */
+  .paddle-table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .paddle-table th { text-align: left; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.7px; color: var(--muted); padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  .paddle-table td { padding: 8px 14px; border-bottom: 1px solid var(--line); }
+  .paddle-table tr:last-child td { border-bottom: none; }
+  .paddle-table input { width: 100%; padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; font-family: var(--font-body); font-size: 0.9rem; background: var(--paper); }
+  .paddle-table .denom-label { font-weight: 600; }
+  .paddle-table .amt-readonly { padding: 7px 10px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .paddle-total { text-align: right; font-family: var(--font-display); font-size: 1.2rem; font-weight: 600; padding: 14px; }
+
+  .save-bar { display: flex; align-items: center; gap: 14px; margin-top: 20px; }
+  .save-btn { padding: 11px 24px; border-radius: 8px; border: none; background: var(--gold); color: var(--ink); font-weight: 600; cursor: pointer; font-family: var(--font-body); font-size: 0.9rem; }
+  .save-btn:hover { background: var(--gold-dark); color: white; }
+  .save-status { font-size: 0.85rem; color: var(--good); }
+  .save-status.err { color: #b04a4a; }
+  #no-event { text-align: center; padding: 60px 0; color: var(--muted); }
+
+  @media (max-width: 600px) {
+    .tab-nav { flex-direction: column; }
+    .progress-wrap { flex-direction: column; text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <h1>Wild Hair Auctions</h1>
+  <p>Enter the email your event was set up with, and we'll send you a one-click sign-in link. No password needed.</p>
+  <input id="email-input" type="email" placeholder="you@yourorganization.org" autocomplete="email" />
+  <button onclick="sendMagicLink()">Send me a login link</button>
+  <div id="login-msg"></div>
+</div>
+
+<div id="app">
+  <header class="top">
+    <div class="header-col header-left">
+      <img src="wild-hair-logo.webp" alt="Wild Hair Auctions" class="brand-logo-client">
+    </div>
+    <div class="header-col header-center">
+      <div class="eyebrow" id="client-org-name">Wild Hair Auctions</div>
+      <h1 class="event-title" id="event-title">Your Event</h1>
+      <div class="event-subline" id="event-subline"></div>
+    </div>
+    <div class="header-col header-right">
+      <span id="logout" onclick="logout()">Log out</span>
+      <div id="logged-in-as" style="font-size: 0.7rem; color: var(--muted); margin-top: 4px;"></div>
+      <div class="event-logo-placeholder">
+        <span>Event Logo</span>
+      </div>
+    </div>
+  </header>
+
+  <div id="no-event" style="display:none;">
+    We couldn't find an event linked to this email yet. If this doesn't seem right, reach out to Wild Hair Auctions directly.
+  </div>
+
+  <div id="event-content" style="display:none;">
+
+    <div class="tab-nav">
+      <button class="tab-btn active" onclick="showTab('overview', this)">Overview</button>
+      <button class="tab-btn" onclick="showTab('onboarding', this)">On-Boarding</button>
+      <button class="tab-btn" onclick="showTab('powerpoint', this)">PowerPoint</button>
+      <button class="tab-btn" onclick="showTab('revgen', this)">Revenue Generators</button>
+      <button class="tab-btn" onclick="showTab('prevstats', this)">Previous Statistics</button>
+      <button class="tab-btn" onclick="showTab('bidders', this)">Bidder Numbers</button>
+      <button class="tab-btn" onclick="showTab('runofshow', this)">Run of Show</button>
+      <button class="tab-btn" onclick="showTab('auctionitems', this)">Live Auction Items</button>
+      <button class="tab-btn" onclick="showTab('paddleraise', this)">Paddle Raise</button>
+    </div>
+
+    <!-- OVERVIEW TAB -->
+    <div class="tab-panel active" id="tab-overview">
+      <div class="highlight">
+        <div class="n" id="raised-amt">—</div>
+        <div class="l">Amount raised so far</div>
+      </div>
+
+      <div class="progress-wrap">
+        <svg id="donut-svg" width="120" height="120" viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r="50" fill="none" stroke="#e4dfd6" stroke-width="14"/>
+          <circle id="donut-fill" cx="60" cy="60" r="50" fill="none" stroke="#3f7a4f" stroke-width="14"
+                   stroke-linecap="round" transform="rotate(-90 60 60)"/>
+          <text x="60" y="66" text-anchor="middle" class="donut-pct" id="donut-pct-text">0%</text>
+        </svg>
+        <div class="progress-legend" id="progress-legend"></div>
+      </div>
+
+      <div class="section-title">Event details</div>
+      <div class="form-grid">
+        <div class="field"><label>Event date</label><div class="readonly" id="v-event_date">—</div></div>
+        <div class="field"><label>Event time</label><input type="time" id="f-event_time"></div>
+      </div>
+
+      <div class="section-title">Your contact info</div>
+      <div class="form-grid">
+        <div class="field"><label>Contact name</label><input type="text" id="f-contact_name"></div>
+        <div class="field"><label>Contact email</label><div class="readonly" id="v-contact_email">—</div></div>
+      </div>
+    </div>
+
+    <!-- ON-BOARDING TAB -->
+    <div class="tab-panel" id="tab-onboarding">
+      <div class="section-title">Event Basics</div>
+      <div class="form-grid">
+        <div class="field span2"><label>Event Name</label><input type="text" id="ob-event_name"></div>
+        <div class="field span2"><label>Event Venue</label><input type="text" id="ob-venue"></div>
+        <div class="field"><label>Estimated # of Guests</label><input type="number" id="ob-guest_count"></div>
+        <div class="field"><label>$ Ticket Price</label><input type="number" step="0.01" id="ob-ticket_price"></div>
+      </div>
+
+      <div class="section-title">Event Contacts</div>
+      <div id="ob-contacts-list"></div>
+
+      <div class="section-title">Vendors &amp; Logistics</div>
+      <div class="form-grid">
+        <div class="field"><label>Bidding Software</label><input type="text" id="ob-bidding_software"></div>
+        <div class="field"><label>Check In / Check Out</label><input type="text" id="ob-check_in_out"></div>
+        <div class="field"><label>DJ / AV</label><input type="text" id="ob-dj_av"></div>
+        <div class="field"><label>Caterer</label><input type="text" id="ob-caterer"></div>
+        <div class="field"><label>Photographer</label><input type="text" id="ob-photographer"></div>
+        <div class="field"><label>Attire Theme</label><input type="text" id="ob-attire_theme"></div>
+      </div>
+
+      <div class="section-title">Video</div>
+      <div class="form-grid">
+        <div class="field"><label>Video Link</label><input type="text" id="ob-video_link" placeholder="https://..."></div>
+        <div class="field">
+          <label>Or Upload a Video File</label>
+          <input type="file" id="ob-video_file" accept="video/*">
+          <div id="ob-video-upload-status" style="font-size: 0.8rem; color: var(--muted); margin-top: 4px;"></div>
+          <div id="ob-video-current" style="font-size: 0.8rem; margin-top: 4px;"></div>
+        </div>
+      </div>
+
+      <div class="section-title">Key Dates</div>
+      <div class="form-grid">
+        <div class="field"><label>Volunteer Date</label><input type="date" id="ob-volunteer_date"></div>
+        <div class="field"><label>1st Consulting Meeting</label><input type="date" id="ob-first_consult_date"></div>
+      </div>
+    </div>
+
+    <!-- POWERPOINT TAB -->
+    <div class="tab-panel" id="tab-powerpoint">
+      <div class="section-title">PowerPoint</div>
+      <div class="form-grid">
+        <div class="field span2">
+          <label>Upload PowerPoint File</label>
+          <input type="file" id="pp-pptx_file" accept=".ppt,.pptx">
+          <div id="pp-upload-status" style="font-size: 0.8rem; color: var(--muted); margin-top: 4px;"></div>
+          <div id="pp-current" style="font-size: 0.8rem; margin-top: 4px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- REVENUE GENERATORS TAB -->
+    <div class="tab-panel" id="tab-revgen">
+      <div class="section-title">Revenue Generators</div>
+      <div class="form-grid">
+        <div class="field"><label>Which One</label><input type="text" id="rg-type"></div>
+        <div class="field"><label>$ Amount Charging</label><input type="number" step="0.01" id="rg-amount"></div>
+        <div class="field span2"><label>Notes</label><textarea id="rg-notes" style="min-height: 100px;"></textarea></div>
+      </div>
+    </div>
+
+    <!-- PREVIOUS STATISTICS TAB -->
+    <div class="tab-panel" id="tab-prevstats">
+      <div class="section-title">Previous Statistics</div>
+      <div class="form-grid">
+        <div class="field"><label># of Live Auction Items</label><input type="number" id="ps-item-count"></div>
+        <div class="field"><label>Live Auction Total</label><input type="number" step="0.01" id="ps-live-auction-total"></div>
+        <div class="field span2"><label>Total $ Raised</label><input type="number" step="0.01" id="ps-total-raised"></div>
+      </div>
+      <div class="section-title">Paddle Raise — Number of Donors</div>
+      <table class="paddle-table">
+        <thead>
+          <tr><th>Level</th><th># of Donors</th></tr>
+        </thead>
+        <tbody id="ps-paddle-tbody"></tbody>
+      </table>
+    </div>
+
+    <!-- BIDDER NUMBERS TAB -->
+    <div class="tab-panel" id="tab-bidders">
+      <div class="section-title">Bidder Numbers</div>
+      <div class="form-grid">
+        <div class="field checkbox-field"><label><input type="checkbox" id="bn-include_logo"> Include Logo</label></div>
+        <div class="field checkbox-field"><label><input type="checkbox" id="bn-ordered"> Ordered</label></div>
+        <div class="field checkbox-field"><label><input type="checkbox" id="bn-delivered"> Delivered</label></div>
+        <div class="field"></div>
+        <div class="field"><label>Starting Number</label><input type="number" id="bn-start_number"></div>
+        <div class="field"><label>Ending Number</label><input type="number" id="bn-end_number"></div>
+      </div>
+    </div>
+
+    <!-- RUN OF SHOW TAB -->
+    <div class="tab-panel" id="tab-runofshow">
+      <div class="section-title">Run of Show</div>
+      <div class="form-grid">
+        <div class="field span2">
+          <label>Paste your full run of show here</label>
+          <textarea id="f-run_of_show" style="min-height: 320px;"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- LIVE AUCTION ITEMS TAB -->
+    <div class="tab-panel" id="tab-auctionitems">
+      <div class="section-title">Live Auction Items</div>
+      <div id="auction-items-list"></div>
+    </div>
+
+    <!-- PADDLE RAISE TAB -->
+    <div class="tab-panel" id="tab-paddleraise">
+      <div class="section-title">Paddle Raise</div>
+      <table class="paddle-table">
+        <thead>
+          <tr><th>Level</th><th># of Donations</th><th>$ Amount</th></tr>
+        </thead>
+        <tbody id="paddle-tbody"></tbody>
+      </table>
+      <div class="paddle-total" id="paddle-total"></div>
+    </div>
+
+    <div class="save-bar" style="position: sticky; bottom: 0; background: var(--paper); padding: 16px 0; border-top: 1px solid var(--line); margin-top: 30px;">
+      <button class="save-btn" onclick="saveAll()">Save changes</button>
+      <span class="save-status" id="save-status"></span>
+      <span style="font-size: 0.78rem; color: var(--muted);">Saves everything on every tab, not just the one you're viewing.</span>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+  const SUPABASE_URL = "https://oooqjgpttzwwqaftlpbb.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9vb3FqZ3B0dHp3d3FhZnRscGJiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MTQxNzcsImV4cCI6MjEwMjM5MDE3N30.9-YYCxXgJ1GAUST7t9eTYS2phXx1qZwpTUqijsc5yGI";
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  let currentEventId = null;
+  let currentClientId = null;
+
+  const PADDLE_LEVELS = [
+    { key: '10000', label: '$10,000', denom: 10000 },
+    { key: '5000', label: '$5,000', denom: 5000 },
+    { key: '2500', label: '$2,500', denom: 2500 },
+    { key: '1000', label: '$1,000', denom: 1000 },
+    { key: '750', label: '$750', denom: 750 },
+    { key: '500', label: '$500', denom: 500 },
+    { key: '250', label: '$250', denom: 250 },
+    { key: '100', label: '$100', denom: 100 },
+    { key: 'paddle_drop', label: 'Paddle Drop', denom: null },
+  ];
+
+  function showTab(name, btn) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + name).classList.add('active');
+  }
+
+  async function sendMagicLink() {
+    const email = document.getElementById('email-input').value.trim();
+    const msg = document.getElementById('login-msg');
+    if (!email) { msg.textContent = 'Please enter an email.'; return; }
+    msg.textContent = 'Sending…';
+    const { error } = await sb.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.origin + window.location.pathname }
+    });
+    msg.textContent = error ? ('Error: ' + error.message) : 'Check your email for a sign-in link.';
+  }
+
+  async function logout() {
+    await sb.auth.signOut();
+    window.location.href = window.location.pathname;
+  }
+
+  async function loadMyEvent() {
+    const { data: { user } } = await sb.auth.getUser();
+    const loggedInEmail = user ? user.email : '(no session found)';
+    document.getElementById('logged-in-as').textContent = 'Logged in as: ' + loggedInEmail;
+
+    const { data: clientRows, error: cErr } = await sb
+      .from('clients')
+      .select('id, name, contact_name, contact_email')
+      .ilike('contact_email', loggedInEmail)
+      .limit(1);
+
+    if (cErr || !clientRows || clientRows.length === 0) {
+      document.getElementById('no-event').style.display = 'block';
+      document.getElementById('no-event').innerHTML =
+        cErr
+          ? `Something went wrong loading your info: ${escapeHtml(cErr.message)}`
+          : `We couldn't find an event linked to <strong>${escapeHtml(loggedInEmail)}</strong>. If this doesn't seem right, reach out to Wild Hair Auctions directly.`;
+      return;
+    }
+    const client = clientRows[0];
+    currentClientId = client.id;
+
+    const { data: eventRows, error: eErr } = await sb
+      .from('events')
+      .select('id, name, event_date, event_time, venue, guest_count, bidding_software, amount_raised, contract_sent, contract_signed, deposit_amount, fee_paid_in_full, run_of_show, live_auction_items, paddle_raise, event_contacts, ticket_price, check_in_out, dj_av, caterer, video_link, video_file_url, photographer, volunteer_date, first_consult_date, attire_theme, pptx_file_url, revenue_generator_type, revenue_generator_amount, revenue_generator_notes, prev_live_auction_items_count, prev_paddle_counts, prev_live_auction_total, prev_total_raised, bidder_include_logo, bidder_start_number, bidder_end_number, bidder_ordered, bidder_delivered')
+      .eq('client_id', client.id)
+      .order('event_date', { ascending: false })
+      .limit(1);
+
+    if (eErr || !eventRows || eventRows.length === 0) {
+      document.getElementById('no-event').style.display = 'block';
+      document.getElementById('no-event').innerHTML = eErr
+        ? `Something went wrong loading this event: ${escapeHtml(eErr.message)}`
+        : `We couldn't find an event linked to <strong>${escapeHtml(loggedInEmail)}</strong>.`;
+      return;
+    }
+    const ev = eventRows[0];
+    currentEventId = ev.id;
+    document.getElementById('no-event').style.display = 'none';
+
+    document.getElementById('client-org-name').textContent = client.name || 'Wild Hair Auctions';
+    document.getElementById('event-title').textContent = ev.name || 'Your Event';
+    const sublineParts = [];
+    if (ev.event_date) sublineParts.push(ev.event_date);
+    if (ev.event_time) sublineParts.push(ev.event_time);
+    if (ev.venue) sublineParts.push(ev.venue);
+    document.getElementById('event-subline').textContent = sublineParts.join(' · ');
+    document.getElementById('raised-amt').textContent = ev.amount_raised ? '$' + Number(ev.amount_raised).toLocaleString() : '—';
+    document.getElementById('v-event_date').textContent = ev.event_date || '—';
+    document.getElementById('f-event_time').value = ev.event_time || '';
+    document.getElementById('v-contact_email').textContent = client.contact_email || '—';
+    document.getElementById('f-contact_name').value = client.contact_name || '';
+    document.getElementById('f-run_of_show').value = ev.run_of_show || '';
+
+    // On-Boarding tab fields
+    document.getElementById('ob-event_name').value = ev.name || '';
+    document.getElementById('ob-venue').value = ev.venue || '';
+    document.getElementById('ob-guest_count').value = ev.guest_count ?? '';
+    document.getElementById('ob-ticket_price').value = ev.ticket_price ?? '';
+    document.getElementById('ob-bidding_software').value = ev.bidding_software || '';
+    document.getElementById('ob-check_in_out').value = ev.check_in_out || '';
+    document.getElementById('ob-dj_av').value = ev.dj_av || '';
+    document.getElementById('ob-caterer').value = ev.caterer || '';
+    document.getElementById('ob-photographer').value = ev.photographer || '';
+    document.getElementById('ob-attire_theme').value = ev.attire_theme || '';
+    document.getElementById('ob-video_link').value = ev.video_link || '';
+    document.getElementById('ob-volunteer_date').value = ev.volunteer_date || '';
+    document.getElementById('ob-first_consult_date').value = ev.first_consult_date || '';
+    document.getElementById('ob-video-current').textContent = ev.video_file_url
+      ? 'Current uploaded file: ' + ev.video_file_url.split('/').pop()
+      : '';
+    renderContactCards(ev.event_contacts);
+
+    // PowerPoint tab
+    document.getElementById('pp-current').textContent = ev.pptx_file_url
+      ? 'Current uploaded file: ' + ev.pptx_file_url.split('/').pop()
+      : '';
+
+    // Revenue Generators tab
+    document.getElementById('rg-type').value = ev.revenue_generator_type || '';
+    document.getElementById('rg-amount').value = ev.revenue_generator_amount ?? '';
+    document.getElementById('rg-notes').value = ev.revenue_generator_notes || '';
+
+    // Previous Statistics tab
+    document.getElementById('ps-item-count').value = ev.prev_live_auction_items_count ?? '';
+    document.getElementById('ps-live-auction-total').value = ev.prev_live_auction_total ?? '';
+    document.getElementById('ps-total-raised').value = ev.prev_total_raised ?? '';
+    renderPrevStatsPaddleCounts(ev.prev_paddle_counts);
+
+    // Bidder Numbers tab
+    document.getElementById('bn-include_logo').checked = !!ev.bidder_include_logo;
+    document.getElementById('bn-ordered').checked = !!ev.bidder_ordered;
+    document.getElementById('bn-delivered').checked = !!ev.bidder_delivered;
+    document.getElementById('bn-start_number').value = ev.bidder_start_number ?? '';
+    document.getElementById('bn-end_number').value = ev.bidder_end_number ?? '';
+
+    renderDonut(ev);
+    renderAuctionItems(ev.live_auction_items);
+    renderPaddleRaise(ev.paddle_raise);
+
+    document.getElementById('event-content').style.display = 'block';
+  }
+
+  function renderPrevStatsPaddleCounts(counts) {
+    const c = counts || {};
+    document.getElementById('ps-paddle-tbody').innerHTML = PADDLE_LEVELS.map(lvl => `
+      <tr>
+        <td class="denom-label">${lvl.label}</td>
+        <td><input type="number" min="0" id="ps-paddle-count-${lvl.key}" value="${(c[lvl.key] || 0)}"></td>
+      </tr>
+    `).join('');
+  }
+
+  async function uploadPptxIfSelected(eventId) {
+    const fileInput = document.getElementById('pp-pptx_file');
+    const file = fileInput.files[0];
+    if (!file) return null;
+
+    const statusEl = document.getElementById('pp-upload-status');
+    statusEl.textContent = 'Uploading PowerPoint…';
+    const path = eventId + '/' + Date.now() + '-' + file.name;
+    const { error: uploadErr } = await sb.storage.from('event-files').upload(path, file);
+    if (uploadErr) {
+      statusEl.textContent = 'Upload failed: ' + uploadErr.message;
+      return null;
+    }
+    const { data: urlData } = sb.storage.from('event-files').getPublicUrl(path);
+    statusEl.textContent = 'PowerPoint uploaded.';
+    return urlData.publicUrl;
+  }
+
+  function renderContactCards(contacts) {
+    const arr = Array.isArray(contacts) && contacts.length === 3
+      ? contacts
+      : [{name:'',title:'',email:'',phone:''},{name:'',title:'',email:'',phone:''},{name:'',title:'',email:'',phone:''}];
+    document.getElementById('ob-contacts-list').innerHTML = arr.map((c, i) => `
+      <div class="contact-card">
+        <div class="contact-num">Contact #${i + 1}</div>
+        <div class="contact-fields">
+          <div class="field"><label>Name</label><input type="text" id="ob-contact-${i}-name" value="${escapeHtml(c.name || '')}"></div>
+          <div class="field"><label>Title</label><input type="text" id="ob-contact-${i}-title" value="${escapeHtml(c.title || '')}"></div>
+          <div class="field"><label>Email Address</label><input type="email" id="ob-contact-${i}-email" value="${escapeHtml(c.email || '')}"></div>
+          <div class="field"><label>Phone Number</label><input type="text" id="ob-contact-${i}-phone" value="${escapeHtml(c.phone || '')}"></div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function uploadVideoIfSelected(eventId) {
+    const fileInput = document.getElementById('ob-video_file');
+    const file = fileInput.files[0];
+    if (!file) return null;
+
+    const statusEl = document.getElementById('ob-video-upload-status');
+    statusEl.textContent = 'Uploading video…';
+    const path = eventId + '/' + Date.now() + '-' + file.name;
+    const { error: uploadErr } = await sb.storage.from('event-files').upload(path, file);
+    if (uploadErr) {
+      statusEl.textContent = 'Upload failed: ' + uploadErr.message;
+      return null;
+    }
+    const { data: urlData } = sb.storage.from('event-files').getPublicUrl(path);
+    statusEl.textContent = 'Video uploaded.';
+    return urlData.publicUrl;
+  }
+
+  function renderDonut(ev) {
+    const eventPassed = ev.event_date && new Date(ev.event_date) < new Date();
+    const steps = [
+      { label: 'Contract sent', done: !!ev.contract_sent },
+      { label: 'Contract signed', done: !!ev.contract_signed },
+      { label: 'Deposit received', done: !!ev.deposit_amount },
+      { label: 'Event held', done: !!eventPassed },
+      { label: 'Paid in full', done: !!ev.fee_paid_in_full },
+    ];
+    const doneCount = steps.filter(s => s.done).length;
+    const pct = Math.round((doneCount / steps.length) * 100);
+
+    const r = 50, circumference = 2 * Math.PI * r;
+    const offset = circumference * (1 - doneCount / steps.length);
+    const circle = document.getElementById('donut-fill');
+    circle.style.strokeDasharray = circumference;
+    circle.style.strokeDashoffset = offset;
+    document.getElementById('donut-pct-text').textContent = pct + '%';
+
+    document.getElementById('progress-legend').innerHTML = steps.map(s =>
+      `<div class="legend-item ${s.done ? 'done' : ''}"><span class="legend-dot"></span>${s.label}</div>`
+    ).join('');
+  }
+
+  function renderAuctionItems(items) {
+    const arr = Array.isArray(items) && items.length === 10 ? items : ["","","","","","","","","",""];
+    document.getElementById('auction-items-list').innerHTML = arr.map((val, i) => `
+      <div class="item-card">
+        <label>Item #${i + 1}</label>
+        <textarea id="item-${i}">${escapeHtml(val)}</textarea>
+      </div>
+    `).join('');
+  }
+
+  function renderPaddleRaise(data) {
+    const pr = data || {};
+    document.getElementById('paddle-tbody').innerHTML = PADDLE_LEVELS.map(lvl => {
+      const row = pr[lvl.key] || { count: 0, amount: 0 };
+      if (lvl.denom) {
+        return `
+          <tr>
+            <td class="denom-label">${lvl.label}</td>
+            <td><input type="number" min="0" id="paddle-count-${lvl.key}" value="${row.count || 0}" oninput="recalcPaddleRow('${lvl.key}', ${lvl.denom})"></td>
+            <td><div class="amt-readonly" id="paddle-amt-${lvl.key}">$${Number(row.amount || 0).toLocaleString()}</div></td>
+          </tr>
+        `;
+      } else {
+        return `
+          <tr>
+            <td class="denom-label">${lvl.label}</td>
+            <td><input type="number" min="0" id="paddle-count-${lvl.key}" value="${row.count || 0}"></td>
+            <td><input type="number" min="0" step="0.01" id="paddle-amt-${lvl.key}" value="${row.amount || 0}" oninput="updatePaddleTotal()"></td>
+          </tr>
+        `;
+      }
+    }).join('');
+    updatePaddleTotal();
+  }
+
+  function recalcPaddleRow(key, denom) {
+    const count = Number(document.getElementById('paddle-count-' + key).value) || 0;
+    const amount = count * denom;
+    document.getElementById('paddle-amt-' + key).textContent = '$' + amount.toLocaleString();
+    updatePaddleTotal();
+  }
+
+  function updatePaddleTotal() {
+    let total = 0;
+    PADDLE_LEVELS.forEach(lvl => {
+      if (lvl.denom) {
+        const count = Number(document.getElementById('paddle-count-' + lvl.key).value) || 0;
+        total += count * lvl.denom;
+      } else {
+        total += Number(document.getElementById('paddle-amt-' + lvl.key).value) || 0;
+      }
+    });
+    document.getElementById('paddle-total').textContent = 'Subtotal: $' + total.toLocaleString();
+  }
+
+  async function saveAll() {
+    const status = document.getElementById('save-status');
+    status.className = 'save-status';
+    status.textContent = 'Saving…';
+
+    const items = [];
+    for (let i = 0; i < 10; i++) {
+      items.push(document.getElementById('item-' + i).value || '');
+    }
+    const paddle_raise = {};
+    PADDLE_LEVELS.forEach(lvl => {
+      const count = Number(document.getElementById('paddle-count-' + lvl.key).value) || 0;
+      const amount = lvl.denom
+        ? count * lvl.denom
+        : (Number(document.getElementById('paddle-amt-' + lvl.key).value) || 0);
+      paddle_raise[lvl.key] = { count, amount };
+    });
+
+    const event_contacts = [];
+    for (let i = 0; i < 3; i++) {
+      event_contacts.push({
+        name: document.getElementById('ob-contact-' + i + '-name').value || '',
+        title: document.getElementById('ob-contact-' + i + '-title').value || '',
+        email: document.getElementById('ob-contact-' + i + '-email').value || '',
+        phone: document.getElementById('ob-contact-' + i + '-phone').value || '',
+      });
+    }
+
+    // Upload new files if selected, before writing the rest
+    const uploadedUrl = await uploadVideoIfSelected(currentEventId);
+    const uploadedPptxUrl = await uploadPptxIfSelected(currentEventId);
+
+    const prev_paddle_counts = {};
+    PADDLE_LEVELS.forEach(lvl => {
+      prev_paddle_counts[lvl.key] = Number(document.getElementById('ps-paddle-count-' + lvl.key).value) || 0;
+    });
+
+    const eventUpdate = {
+      name: document.getElementById('ob-event_name').value || null,
+      venue: document.getElementById('ob-venue').value || null,
+      event_time: document.getElementById('f-event_time').value || null,
+      guest_count: document.getElementById('ob-guest_count').value ? Number(document.getElementById('ob-guest_count').value) : null,
+      bidding_software: document.getElementById('ob-bidding_software').value || null,
+      ticket_price: document.getElementById('ob-ticket_price').value ? Number(document.getElementById('ob-ticket_price').value) : null,
+      check_in_out: document.getElementById('ob-check_in_out').value || null,
+      dj_av: document.getElementById('ob-dj_av').value || null,
+      caterer: document.getElementById('ob-caterer').value || null,
+      photographer: document.getElementById('ob-photographer').value || null,
+      attire_theme: document.getElementById('ob-attire_theme').value || null,
+      video_link: document.getElementById('ob-video_link').value || null,
+      volunteer_date: document.getElementById('ob-volunteer_date').value || null,
+      first_consult_date: document.getElementById('ob-first_consult_date').value || null,
+      event_contacts: event_contacts,
+      revenue_generator_type: document.getElementById('rg-type').value || null,
+      revenue_generator_amount: document.getElementById('rg-amount').value ? Number(document.getElementById('rg-amount').value) : null,
+      revenue_generator_notes: document.getElementById('rg-notes').value || null,
+      prev_live_auction_items_count: document.getElementById('ps-item-count').value ? Number(document.getElementById('ps-item-count').value) : null,
+      prev_paddle_counts: prev_paddle_counts,
+      prev_live_auction_total: document.getElementById('ps-live-auction-total').value ? Number(document.getElementById('ps-live-auction-total').value) : null,
+      prev_total_raised: document.getElementById('ps-total-raised').value ? Number(document.getElementById('ps-total-raised').value) : null,
+      bidder_include_logo: document.getElementById('bn-include_logo').checked,
+      bidder_ordered: document.getElementById('bn-ordered').checked,
+      bidder_delivered: document.getElementById('bn-delivered').checked,
+      bidder_start_number: document.getElementById('bn-start_number').value ? Number(document.getElementById('bn-start_number').value) : null,
+      bidder_end_number: document.getElementById('bn-end_number').value ? Number(document.getElementById('bn-end_number').value) : null,
+      run_of_show: document.getElementById('f-run_of_show').value || null,
+      live_auction_items: items,
+      paddle_raise: paddle_raise,
+    };
+    if (uploadedUrl) {
+      eventUpdate.video_file_url = uploadedUrl;
+    }
+    if (uploadedPptxUrl) {
+      eventUpdate.pptx_file_url = uploadedPptxUrl;
+    }
+    const clientUpdate = {
+      contact_name: document.getElementById('f-contact_name').value || null,
+    };
+
+    const { error: e1 } = await sb.from('events').update(eventUpdate).eq('id', currentEventId);
+    const { error: e2 } = await sb.from('clients').update(clientUpdate).eq('id', currentClientId);
+
+    if (e1 || e2) {
+      status.className = 'save-status err';
+      status.textContent = 'Could not save: ' + ((e1 && e1.message) || (e2 && e2.message));
+    } else {
+      status.textContent = 'Saved everything.';
+    }
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str || '';
+    return div.innerHTML;
+  }
+
+  async function checkSession() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) {
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      loadMyEvent();
+    }
+  }
+
+  sb.auth.onAuthStateChange((event, session) => {
+    if (session) {
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      loadMyEvent();
+    }
+  });
+
+  checkSession();
+</script>
+</body>
+</html>
