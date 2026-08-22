@@ -489,30 +489,17 @@
   // ── FILL THESE TWO IN ──────────────────────────────────────
   const SUPABASE_URL = "https://oooqjgpttzwwqaftlpbb.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9vb3FqZ3B0dHp3d3FhZnRscGJiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MTQxNzcsImV4cCI6MjEwMjM5MDE3N30.9-YYCxXgJ1GAUST7t9eTYS2phXx1qZwpTUqijsc5yGI";
-  const ADMIN_PASSCODE = "wildhair"; // Marissa's passcode — sees the financial Overview
-  const STAFF_PASSCODE = "wildhairstaff"; // other staff (e.g. IV) — no financial Overview
+  const ADMIN_PASSCODE = "wildhair"; // Marissa's passcode — this page is admin-only now
   // ────────────────────────────────────────────────────────────
 
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  function applyRoleUI() {
-    const isAdmin = sessionStorage.getItem('wha_role') === 'admin';
-    document.getElementById('nav-overview').style.display = isAdmin ? 'inline-block' : 'none';
-    if (!isAdmin) showView('events');
-  }
-
   function checkPasscode() {
     const val = document.getElementById('passcode-input').value;
-    let role = null;
-    if (val === ADMIN_PASSCODE) role = 'admin';
-    else if (val === STAFF_PASSCODE) role = 'staff';
-
-    if (role) {
+    if (val === ADMIN_PASSCODE) {
       document.getElementById('gate').style.display = 'none';
       document.getElementById('app').style.display = 'block';
       sessionStorage.setItem('wha_authed', '1');
-      sessionStorage.setItem('wha_role', role);
-      applyRoleUI();
       loadEvents();
     } else {
       document.getElementById('gate-err').textContent = 'Incorrect passcode.';
@@ -524,7 +511,6 @@
   if (sessionStorage.getItem('wha_authed') === '1') {
     document.getElementById('gate').style.display = 'none';
     document.getElementById('app').style.display = 'block';
-    applyRoleUI();
     loadEvents();
   }
 
