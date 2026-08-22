@@ -40,8 +40,9 @@
   .event-logo-placeholder {
     width: 90px; height: 90px; border: 2px dashed var(--line); border-radius: 10px;
     display: flex; align-items: center; justify-content: center; text-align: center;
-    color: var(--muted); font-size: 0.7rem; background: var(--panel);
+    color: var(--muted); font-size: 0.7rem; background: var(--panel); cursor: pointer; overflow: hidden;
   }
+  .event-logo-placeholder:hover { border-color: var(--gold); }
   @media (max-width: 700px) {
     header.top { grid-template-columns: 1fr; text-align: center; }
     .header-left { justify-content: center; }
@@ -144,9 +145,11 @@
     <div class="header-col header-right">
       <span id="logout" onclick="logout()">Log out</span>
       <div id="logged-in-as" style="font-size: 0.7rem; color: var(--muted); margin-top: 4px;"></div>
-      <div class="event-logo-placeholder">
-        <span>Event Logo</span>
+      <div class="event-logo-placeholder" id="event-logo-box" onclick="document.getElementById('event-logo-file').click()">
+        <span id="event-logo-text">Event Logo</span>
+        <img id="event-logo-img" style="display:none; width:100%; height:100%; object-fit:cover; border-radius:8px;">
       </div>
+      <input type="file" id="event-logo-file" accept="image/*" style="display:none;" onchange="uploadEventLogo()">
     </div>
   </header>
 
@@ -399,7 +402,7 @@
 
     const { data: eventRows, error: eErr } = await sb
       .from('events')
-      .select('id, name, event_date, event_time, venue, guest_count, bidding_software, amount_raised, contract_sent, contract_signed, deposit_amount, fee_paid_in_full, run_of_show, live_auction_items, paddle_raise, event_contacts, ticket_price, check_in_out, dj_av, caterer, video_link, video_file_url, photographer, volunteer_date, first_consult_date, attire_theme, pptx_file_url, revenue_generator_type, revenue_generator_amount, revenue_generator_notes, prev_live_auction_items_count, prev_paddle_counts, prev_live_auction_total, prev_total_raised, bidder_include_logo, bidder_start_number, bidder_end_number, bidder_ordered, bidder_delivered')
+      .select('id, name, event_date, event_time, venue, guest_count, bidding_software, amount_raised, contract_sent, contract_signed, deposit_amount, fee_paid_in_full, run_of_show, live_auction_items, paddle_raise, event_contacts, ticket_price, check_in_out, dj_av, caterer, video_link, video_file_url, photographer, volunteer_date, first_consult_date, attire_theme, pptx_file_url, revenue_generator_type, revenue_generator_amount, revenue_generator_notes, prev_live_auction_items_count, prev_paddle_counts, prev_live_auction_total, prev_total_raised, bidder_include_logo, bidder_start_number, bidder_end_number, bidder_ordered, bidder_delivered, event_logo_url')
       .eq('client_id', client.id)
       .order('event_date', { ascending: false })
       .limit(1);
@@ -447,6 +450,7 @@
       ? 'Current uploaded file: ' + ev.video_file_url.split('/').pop()
       : '';
     renderContactCards(ev.event_contacts);
+    showEventLogo(ev.event_logo_url);
 
     // PowerPoint tab
     document.getElementById('pp-current').textContent = ev.pptx_file_url
@@ -486,6 +490,33 @@
         <td><input type="number" min="0" id="ps-paddle-count-${lvl.key}" value="${(c[lvl.key] || 0)}"></td>
       </tr>
     `).join('');
+  }
+
+  async function uploadEventLogo() {
+    const fileInput = document.getElementById('event-logo-file');
+    const file = fileInput.files[0];
+    if (!file || !currentEventId) return;
+
+    const path = currentEventId + '/logo-' + Date.now() + '-' + file.name;
+    const { error: uploadErr } = await sb.storage.from('event-files').upload(path, file);
+    if (uploadErr) {
+      alert('Could not upload logo: ' + uploadErr.message);
+      return;
+    }
+    const { data: urlData } = sb.storage.from('event-files').getPublicUrl(path);
+    await sb.from('events').update({ event_logo_url: urlData.publicUrl }).eq('id', currentEventId);
+    showEventLogo(urlData.publicUrl);
+  }
+
+  function showEventLogo(url) {
+    if (url) {
+      document.getElementById('event-logo-img').src = url;
+      document.getElementById('event-logo-img').style.display = 'block';
+      document.getElementById('event-logo-text').style.display = 'none';
+    } else {
+      document.getElementById('event-logo-img').style.display = 'none';
+      document.getElementById('event-logo-text').style.display = 'block';
+    }
   }
 
   async function uploadPptxIfSelected(eventId) {
