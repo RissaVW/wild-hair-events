@@ -1000,12 +1000,18 @@
 
   function renderAdminAuctionItems(items) {
     const arr = Array.isArray(items) && items.length === 10 ? items : ["","","","","","","","","",""];
-    document.getElementById('admin-auction-items-list').innerHTML = arr.map((val, i) => `
+    document.getElementById('admin-auction-items-list').innerHTML = arr.map((val, i) => {
+      const desc = typeof val === 'string' ? val : (val && val.description) || '';
+      const amt = typeof val === 'string' ? 0 : (val && val.amount) || 0;
+      return `
       <div class="item-card">
         <label>Item #${i + 1}</label>
-        <textarea id="admin-item-${i}">${escapeHtml(val)}</textarea>
+        <textarea id="admin-item-${i}">${escapeHtml(desc)}</textarea>
+        <div style="margin-top:8px;"><label style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.7px; color:var(--muted); font-weight:600; display:block; margin-bottom:4px;">Sale Amount</label>
+        <input type="number" step="0.01" min="0" id="admin-item-${i}-amount" value="${amt}" oninput="updateAdminPaddleTotal()" style="width:160px; padding:9px 12px; border:1px solid var(--line); border-radius:8px; font-family:var(--font-body); font-size:0.9rem; background:var(--paper);"></div>
       </div>
-    `).join('');
+    `;
+    }).join('');
   }
 
   function renderAdminPaddleRaise(data) {
@@ -1041,16 +1047,23 @@
   }
 
   function updateAdminPaddleTotal() {
-    let total = 0;
+    let paddleTotal = 0;
     PADDLE_LEVELS.forEach(lvl => {
       if (lvl.denom) {
         const count = Number(document.getElementById('admin-paddle-count-' + lvl.key).value) || 0;
-        total += count * lvl.denom;
+        paddleTotal += count * lvl.denom;
       } else {
-        total += Number(document.getElementById('admin-paddle-amt-' + lvl.key).value) || 0;
+        paddleTotal += Number(document.getElementById('admin-paddle-amt-' + lvl.key).value) || 0;
       }
     });
-    document.getElementById('admin-paddle-total').textContent = 'Subtotal: $' + total.toLocaleString();
+    let auctionTotal = 0;
+    for (let i = 0; i < 10; i++) {
+      const el = document.getElementById('admin-item-' + i + '-amount');
+      if (el) auctionTotal += Number(el.value) || 0;
+    }
+    const total = paddleTotal + auctionTotal;
+    document.getElementById('admin-paddle-total').textContent =
+      'Subtotal (Live Auction $' + auctionTotal.toLocaleString() + ' + Paddle Raise $' + paddleTotal.toLocaleString() + '): $' + total.toLocaleString();
   }
 
   function renderStepsTracker(data) {
@@ -1206,7 +1219,10 @@
 
     const auctionItems = [];
     for (let i = 0; i < 10; i++) {
-      auctionItems.push(document.getElementById('admin-item-' + i).value || '');
+      auctionItems.push({
+        description: document.getElementById('admin-item-' + i).value || '',
+        amount: Number(document.getElementById('admin-item-' + i + '-amount').value) || 0,
+      });
     }
     const paddleRaise = {};
     PADDLE_LEVELS.forEach(lvl => {
