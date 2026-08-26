@@ -598,12 +598,18 @@
 
   function renderAuctionItems(items) {
     const arr = Array.isArray(items) && items.length === 10 ? items : ["","","","","","","","","",""];
-    document.getElementById('auction-items-list').innerHTML = arr.map((val, i) => `
+    document.getElementById('auction-items-list').innerHTML = arr.map((val, i) => {
+      const desc = typeof val === 'string' ? val : (val && val.description) || '';
+      const amt = typeof val === 'string' ? 0 : (val && val.amount) || 0;
+      return `
       <div class="item-card">
         <label>Item #${i + 1}</label>
-        <textarea id="item-${i}">${escapeHtml(val)}</textarea>
+        <textarea id="item-${i}">${escapeHtml(desc)}</textarea>
+        <div style="margin-top:8px;"><label style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.7px; color:var(--muted); font-weight:600; display:block; margin-bottom:4px;">Sale Amount</label>
+        <input type="number" step="0.01" min="0" id="item-${i}-amount" value="${amt}" oninput="updatePaddleTotal()" style="width:160px; padding:9px 12px; border:1px solid var(--line); border-radius:8px; font-family:var(--font-body); font-size:0.9rem; background:var(--paper);"></div>
       </div>
-    `).join('');
+    `;
+    }).join('');
   }
 
   function renderPaddleRaise(data) {
@@ -639,16 +645,23 @@
   }
 
   function updatePaddleTotal() {
-    let total = 0;
+    let paddleTotal = 0;
     PADDLE_LEVELS.forEach(lvl => {
       if (lvl.denom) {
         const count = Number(document.getElementById('paddle-count-' + lvl.key).value) || 0;
-        total += count * lvl.denom;
+        paddleTotal += count * lvl.denom;
       } else {
-        total += Number(document.getElementById('paddle-amt-' + lvl.key).value) || 0;
+        paddleTotal += Number(document.getElementById('paddle-amt-' + lvl.key).value) || 0;
       }
     });
-    document.getElementById('paddle-total').textContent = 'Subtotal: $' + total.toLocaleString();
+    let auctionTotal = 0;
+    for (let i = 0; i < 10; i++) {
+      const el = document.getElementById('item-' + i + '-amount');
+      if (el) auctionTotal += Number(el.value) || 0;
+    }
+    const total = paddleTotal + auctionTotal;
+    document.getElementById('paddle-total').textContent =
+      'Subtotal (Live Auction $' + auctionTotal.toLocaleString() + ' + Paddle Raise $' + paddleTotal.toLocaleString() + '): $' + total.toLocaleString();
   }
 
   async function saveAll() {
@@ -658,7 +671,10 @@
 
     const items = [];
     for (let i = 0; i < 10; i++) {
-      items.push(document.getElementById('item-' + i).value || '');
+      items.push({
+        description: document.getElementById('item-' + i).value || '',
+        amount: Number(document.getElementById('item-' + i + '-amount').value) || 0,
+      });
     }
     const paddle_raise = {};
     PADDLE_LEVELS.forEach(lvl => {
