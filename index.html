@@ -279,6 +279,7 @@
     <select id="auctioneerFilter" onchange="render()">
       <option value="">All auctioneers</option>
     </select>
+    <button class="save-btn" onclick="showAddEvent()" style="white-space:nowrap;">+ Add Event</button>
   </div>
 
   <div id="empty" style="display:none;">No events match your filters.</div>
@@ -298,6 +299,39 @@
   <div id="mobile-cards" class="mobile-cards"></div>
 
   <footer class="note">Pilot build — data current as of last import from Auction_Tracker.xlsx.</footer>
+  </div>
+
+  <div id="view-addevent" style="display:none;">
+    <a class="back-link" onclick="cancelAddEvent()">&larr; Back to all events</a>
+    <div class="section-title">Add New Event</div>
+    <div class="form-grid">
+      <div class="field checkbox-field">
+        <label><input type="checkbox" id="ae-new-client" onchange="toggleNewClientFields()"> This is a new client</label>
+      </div>
+      <div class="field span2" id="ae-existing-client-wrap">
+        <label>Existing Client</label>
+        <select id="ae-existing-client"><option value="">Select a client…</option></select>
+      </div>
+      <div class="field span2" id="ae-new-client-wrap" style="display:none;">
+        <label>New Client / Organization Name</label>
+        <input type="text" id="ae-new-client-name">
+      </div>
+      <div class="field" id="ae-new-contact-name-wrap" style="display:none;">
+        <label>Contact Name</label>
+        <input type="text" id="ae-new-contact-name">
+      </div>
+      <div class="field" id="ae-new-contact-email-wrap" style="display:none;">
+        <label>Contact Email</label>
+        <input type="email" id="ae-new-contact-email">
+      </div>
+      <div class="field"><label>Event Name</label><input type="text" id="ae-event-name"></div>
+      <div class="field"><label>Event Date</label><input type="date" id="ae-event-date"></div>
+      <div class="field span2"><label>Venue</label><input type="text" id="ae-venue"></div>
+    </div>
+    <div class="save-bar">
+      <button class="save-btn" onclick="createEvent()">Create Event</button>
+      <span class="save-status" id="ae-status"></span>
+    </div>
   </div>
 
   <div id="detail">
@@ -493,6 +527,7 @@
   // ────────────────────────────────────────────────────────────
 
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const ORG_ID = "00000000-0000-0000-0000-000000000001";
 
   function checkPasscode() {
     const val = document.getElementById('passcode-input').value;
@@ -1045,6 +1080,106 @@
     document.getElementById('table').style.display = isMobile ? 'none' : 'table';
     document.getElementById('mobile-cards').style.display = isMobile ? 'block' : 'none';
     buildOverview();
+  }
+
+  async function showAddEvent() {
+    document.getElementById('app').querySelector('header.top').style.display = 'none';
+    document.getElementById('view-events').style.display = 'none';
+    document.getElementById('view-addevent').style.display = 'block';
+
+    document.getElementById('ae-status').textContent = '';
+    document.getElementById('ae-new-client').checked = false;
+    toggleNewClientFields();
+    document.getElementById('ae-event-name').value = '';
+    document.getElementById('ae-event-date').value = '';
+    document.getElementById('ae-venue').value = '';
+    document.getElementById('ae-new-client-name').value = '';
+    document.getElementById('ae-new-contact-name').value = '';
+    document.getElementById('ae-new-contact-email').value = '';
+
+    const { data, error } = await sb.from('clients').select('id, name').order('name');
+    const sel = document.getElementById('ae-existing-client');
+    sel.innerHTML = '<option value="">Select a client…</option>';
+    if (!error && data) {
+      data.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name;
+        sel.appendChild(opt);
+      });
+    }
+    window.scrollTo(0, 0);
+  }
+
+  function cancelAddEvent() {
+    document.getElementById('view-addevent').style.display = 'none';
+    document.getElementById('app').querySelector('header.top').style.display = 'flex';
+    showView('events');
+  }
+
+  function toggleNewClientFields() {
+    const isNew = document.getElementById('ae-new-client').checked;
+    document.getElementById('ae-existing-client-wrap').style.display = isNew ? 'none' : 'block';
+    document.getElementById('ae-new-client-wrap').style.display = isNew ? 'block' : 'none';
+    document.getElementById('ae-new-contact-name-wrap').style.display = isNew ? 'block' : 'none';
+    document.getElementById('ae-new-contact-email-wrap').style.display = isNew ? 'block' : 'none';
+  }
+
+  async function createEvent() {
+    const status = document.getElementById('ae-status');
+    status.className = 'save-status';
+    status.textContent = 'Creating…';
+
+    const isNew = document.getElementById('ae-new-client').checked;
+    let clientId = null;
+
+    if (isNew) {
+      const name = document.getElementById('ae-new-client-name').value.trim();
+      if (!name) {
+        status.className = 'save-status err';
+        status.textContent = 'Enter a client/organization name.';
+        return;
+      }
+      const { data, error } = await sb.from('clients').insert({
+        organization_id: ORG_ID,
+        name: name,
+        contact_name: document.getElementById('ae-new-contact-name').value || null,
+        contact_email: document.getElementById('ae-new-contact-email').value || null,
+      }).select().single();
+      if (error) {
+        status.className = 'save-status err';
+        status.textContent = 'Could not create client: ' + error.message;
+        return;
+      }
+      clientId = data.id;
+    } else {
+      clientId = document.getElementById('ae-existing-client').value;
+      if (!clientId) {
+        status.className = 'save-status err';
+        status.textContent = 'Select an existing client, or check "This is a new client."';
+        return;
+      }
+    }
+
+    const eventName = document.getElementById('ae-event-name').value.trim();
+    const { data: eventData, error: eventError } = await sb.from('events').insert({
+      organization_id: ORG_ID,
+      client_id: clientId,
+      name: eventName || null,
+      event_date: document.getElementById('ae-event-date').value || null,
+      venue: document.getElementById('ae-venue').value || null,
+    }).select().single();
+
+    if (eventError) {
+      status.className = 'save-status err';
+      status.textContent = 'Could not create event: ' + eventError.message;
+      return;
+    }
+
+    status.textContent = 'Created! Opening event…';
+    document.getElementById('view-addevent').style.display = 'none';
+    await loadEvents();
+    openDetail(eventData.id);
   }
 
   function setVal(id, val) {
