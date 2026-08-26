@@ -397,14 +397,15 @@
 
   function renderReadonlyAuctionItems(items) {
     const arr = Array.isArray(items) ? items : [];
-    const filled = arr.filter(v => v && v.trim());
+    const norm = arr.map(v => typeof v === 'string' ? { description: v, amount: 0 } : (v || { description: '', amount: 0 }));
+    const filled = norm.filter(v => v.description && v.description.trim());
     const wrap = document.getElementById('ro-auction-items-list');
     if (filled.length === 0) {
       wrap.innerHTML = '<div class="val empty">Nothing entered yet.</div>';
       return;
     }
-    wrap.innerHTML = arr.map((val, i) => val && val.trim() ? `
-      <div class="item-card"><label>Item #${i + 1}</label><div>${escapeHtml(val)}</div></div>
+    wrap.innerHTML = norm.map((v, i) => v.description && v.description.trim() ? `
+      <div class="item-card"><label>Item #${i + 1}</label><div>${escapeHtml(v.description)}</div>${v.amount ? `<div class="val" style="margin-top:4px;">Sold for $${Number(v.amount).toLocaleString()}</div>` : ''}</div>
     ` : '').join('');
   }
 
