@@ -367,6 +367,10 @@
       <div class="field"><label>Event Name</label><input type="text" id="ae-event-name"></div>
       <div class="field"><label>Event Date</label><input type="date" id="ae-event-date"></div>
       <div class="field span2"><label>Venue</label><input type="text" id="ae-venue"></div>
+      <div class="field span2">
+        <label>Assign Staff Member</label>
+        <select id="ae-staff"><option value="">Unassigned</option></select>
+      </div>
     </div>
     <div class="save-bar">
       <button class="save-btn" onclick="createEvent()">Create Event</button>
@@ -457,6 +461,10 @@
         <div class="field span2"><label>Event Venue</label><input type="text" id="ob-venue"></div>
         <div class="field"><label>Estimated # of Guests</label><input type="number" id="ob-guest_count"></div>
         <div class="field"><label>$ Ticket Price</label><input type="number" step="0.01" id="ob-ticket_price"></div>
+        <div class="field span2" id="ob-auctioneer-field">
+          <label>Assigned Staff Member</label>
+          <select id="ob-auctioneer"><option value="">Unassigned</option></select>
+        </div>
       </div>
 
       <div class="section-title">Event Contacts</div>
@@ -653,6 +661,7 @@
       document.getElementById('tabbtn-bidders').style.display = 'none';
       document.getElementById('section-contract-payment').style.display = 'none';
       document.getElementById('section-financials').style.display = 'none';
+      document.getElementById('ob-auctioneer-field').style.display = 'none';
     }
     loadEvents();
   }
@@ -1037,6 +1046,21 @@
   let currentEventId = null;
   let currentClientId = null;
 
+  async function populateAuctioneerDropdown(currentAuctioneerId) {
+    const { data, error } = await sb.from('staff_accounts').select('id, full_name, role').order('full_name');
+    const sel = document.getElementById('ob-auctioneer');
+    sel.innerHTML = '<option value="">Unassigned</option>';
+    if (!error && data) {
+      data.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.id;
+        opt.textContent = s.full_name + ' (' + s.role + ')';
+        if (s.id === currentAuctioneerId) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+  }
+
   async function openDetail(eventId) {
     const { data, error } = await sb
       .from('events')
@@ -1050,6 +1074,7 @@
         pptx_file_url, revenue_generator_type, revenue_generator_amount, revenue_generator_notes,
         prev_live_auction_items_count, prev_paddle_counts, prev_live_auction_total, prev_total_raised,
         bidder_include_logo, bidder_start_number, bidder_end_number, bidder_ordered, bidder_delivered,
+        auctioneer_id,
         client_id, clients ( id, name, contact_name, contact_email, tax_form_status )
       `)
       .eq('id', eventId)
@@ -1090,6 +1115,7 @@
     setVal('ob-venue', data.venue);
     setVal('ob-guest_count', data.guest_count);
     setVal('ob-ticket_price', data.ticket_price);
+    await populateAuctioneerDropdown(data.auctioneer_id);
     setVal('ob-bidding_software', data.bidding_software);
     setVal('ob-check_in_out', data.check_in_out);
     setVal('ob-dj_av', data.dj_av);
@@ -1349,6 +1375,18 @@
         sel.appendChild(opt);
       });
     }
+
+    const { data: staffData, error: staffErr } = await sb.from('staff_accounts').select('id, full_name, role').order('full_name');
+    const staffSel = document.getElementById('ae-staff');
+    staffSel.innerHTML = '<option value="">Unassigned</option>';
+    if (!staffErr && staffData) {
+      staffData.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.id;
+        opt.textContent = s.full_name + ' (' + s.role + ')';
+        staffSel.appendChild(opt);
+      });
+    }
     window.scrollTo(0, 0);
   }
 
@@ -1409,7 +1447,7 @@
       name: eventName || null,
       event_date: document.getElementById('ae-event-date').value || null,
       venue: document.getElementById('ae-venue').value || null,
-      auctioneer_id: scopedStaffId || null,
+      auctioneer_id: scopedStaffId || document.getElementById('ae-staff').value || null,
     }).select().single();
 
     if (eventError) {
@@ -1509,6 +1547,7 @@
       guest_count: getNum('ob-guest_count'),
       bidding_software: getVal('ob-bidding_software'),
       ticket_price: getNum('ob-ticket_price'),
+      auctioneer_id: document.getElementById('ob-auctioneer').value || null,
       check_in_out: getVal('ob-check_in_out'),
       dj_av: getVal('ob-dj_av'),
       caterer: getVal('ob-caterer'),
