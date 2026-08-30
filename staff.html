@@ -93,8 +93,9 @@
 
 <div id="gate">
   <h1>Wild Hair Auctions — Staff</h1>
-  <div><input id="passcode-input" type="password" placeholder="Passcode" autocomplete="off" /></div>
-  <button onclick="checkPasscode()">Enter</button>
+  <p style="color:#c9c2b6; font-size:0.9rem; max-width:300px; margin:0;">Enter your email and we'll send you a one-click sign-in link.</p>
+  <div><input id="staff-email-input" type="email" placeholder="you@email.com" style="padding:12px 16px; font-size:1rem; border-radius:8px; border:none; width:220px; text-align:center;" /></div>
+  <button onclick="sendStaffLoginLink()">Send me a login link</button>
   <div class="err" id="gate-err"></div>
 </div>
 
@@ -106,6 +107,7 @@
         <div class="eyebrow">Wild Hair Auctions</div>
         <h1 style="font-family: var(--font-display); font-size: 1.8rem; margin: 4px 0 0;">Your Events</h1>
       </div>
+      <span onclick="staffLogout()" style="cursor:pointer; text-decoration:underline; color:var(--muted); font-size:0.85rem;">Log out</span>
     </header>
 
     <div class="year-tabs" id="yearTabs"></div>
@@ -214,7 +216,6 @@
 <script>
   const SUPABASE_URL = "https://oooqjgpttzwwqaftlpbb.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9vb3FqZ3B0dHp3d3FhZnRscGJiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MTQxNzcsImV4cCI6MjEwMjM5MDE3N30.9-YYCxXgJ1GAUST7t9eTYS2phXx1qZwpTUqijsc5yGI";
-  const STAFF_PASSCODE = "wildhairstaff";
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   const PADDLE_LEVELS = [
@@ -229,24 +230,46 @@
     { key: 'paddle_drop', label: 'Paddle Drop', denom: null },
   ];
 
-  function checkPasscode() {
-    const val = document.getElementById('passcode-input').value;
-    if (val === STAFF_PASSCODE) {
-      document.getElementById('gate').style.display = 'none';
-      document.getElementById('app').style.display = 'block';
-      sessionStorage.setItem('wh_staff_authed', '1');
-      loadEvents();
-    } else {
-      document.getElementById('gate-err').textContent = 'Incorrect passcode.';
-    }
+  async function sendStaffLoginLink() {
+    const email = document.getElementById('staff-email-input').value.trim();
+    const msg = document.getElementById('gate-err');
+    if (!email) { msg.textContent = 'Enter an email.'; return; }
+    msg.style.color = '#e0c080';
+    msg.textContent = 'Sending…';
+    const { error } = await sb.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.origin + window.location.pathname }
+    });
+    msg.textContent = error ? ('Error: ' + error.message) : 'Check your email for a sign-in link.';
   }
-  document.getElementById('passcode-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') checkPasscode();
-  });
-  if (sessionStorage.getItem('wh_staff_authed') === '1') {
+
+  async function enterAsStaff() {
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) return;
+    const { data: staffRows, error } = await sb
+      .from('staff_accounts')
+      .select('id, full_name')
+      .ilike('email', user.email)
+      .limit(1);
+
+    if (error || !staffRows || staffRows.length === 0) {
+      document.getElementById('gate-err').textContent =
+        'No matching staff account found for ' + user.email + '. Ask Marissa to check your account.';
+      await sb.auth.signOut();
+      return;
+    }
     document.getElementById('gate').style.display = 'none';
     document.getElementById('app').style.display = 'block';
     loadEvents();
+  }
+
+  sb.auth.onAuthStateChange((event, session) => {
+    if (session) enterAsStaff();
+  });
+
+  async function staffLogout() {
+    await sb.auth.signOut();
+    window.location.reload();
   }
 
   let allEvents = [];
