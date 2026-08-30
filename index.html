@@ -249,6 +249,13 @@
   </div>
   <button onclick="checkPasscode()">Enter</button>
   <div class="err" id="gate-err"></div>
+
+  <div style="color:#8a8378; font-size:0.8rem; margin-top:6px;">— or —</div>
+  <div>
+    <input id="staff-email-input" type="email" placeholder="you@email.com" style="padding:12px 16px; font-size:1rem; border-radius:8px; border:none; width:220px; text-align:center;" />
+  </div>
+  <button onclick="sendStaffLoginLink()" style="background:#4a4438;">Email me a login link</button>
+  <div class="err" id="staff-login-msg" style="color:#e0c080;"></div>
 </div>
 
 <div id="app">
@@ -261,8 +268,14 @@
     <nav class="top-nav">
       <button class="nav-btn active" id="nav-overview" onclick="showView('overview')">Overview</button>
       <button class="nav-btn" id="nav-events" onclick="showView('events')">Active Events</button>
+      <button class="nav-btn" id="nav-staffaccounts" onclick="showView('staffaccounts')" style="display:none;">Staff Accounts</button>
     </nav>
   </header>
+
+  <div id="scoped-staff-banner" style="display:none; background:#eee2cf; border:1px solid var(--gold); border-radius:8px; padding:10px 16px; margin-bottom:20px; font-size:0.88rem;">
+    Logged in as <strong id="scoped-staff-name"></strong> — showing only your assigned events.
+    <span onclick="staffLogout()" style="cursor:pointer; text-decoration:underline; margin-left:10px; color:var(--gold-dark);">Log out</span>
+  </div>
 
   <div id="loading">Loading events…</div>
   <div id="error" style="display:none;"></div>
@@ -270,6 +283,14 @@
   <div class="year-tabs" id="yearTabs"></div>
 
   <div id="view-overview"></div>
+
+  <div id="view-staffaccounts" style="display:none;">
+    <div class="section-title">Staff Accounts</div>
+    <div id="staff-accounts-list"></div>
+    <div style="font-size:0.82rem; color:var(--muted); margin-top:16px;">
+      "Resend Login Link" sends that person a fresh, one-click sign-in email — useful if they're locked out or on a new device. There's no password to reset since everyone logs in this way.
+    </div>
+  </div>
 
   <div id="view-events" style="display:none;">
   <div class="stats" id="stats"></div>
@@ -484,6 +505,10 @@
       <div class="field"><label>Contact name</label><input type="text" id="f-contact_name"></div>
       <div class="field"><label>Contact email</label><input type="email" id="f-contact_email"></div>
       <div class="field"><label>1099 received</label><input type="text" id="f-tax_form_status"></div>
+      <div class="field span2">
+        <button class="save-btn" onclick="sendClientInvite()" style="width:auto;">Send Invite</button>
+        <span class="save-status" id="invite-status" style="margin-left:12px;"></span>
+      </div>
     </div>
 
     <div class="section-title">Run of Show</div>
@@ -534,6 +559,7 @@
     if (val === ADMIN_PASSCODE) {
       document.getElementById('gate').style.display = 'none';
       document.getElementById('app').style.display = 'block';
+      document.getElementById('nav-staffaccounts').style.display = 'inline-block';
       sessionStorage.setItem('wha_authed', '1');
       loadEvents();
     } else {
@@ -546,8 +572,64 @@
   if (sessionStorage.getItem('wha_authed') === '1') {
     document.getElementById('gate').style.display = 'none';
     document.getElementById('app').style.display = 'block';
+    document.getElementById('nav-staffaccounts').style.display = 'inline-block';
     loadEvents();
   }
+
+  let scopedStaffName = null;
+  let scopedStaffId = null;
+
+  async function sendStaffLoginLink() {
+    const email = document.getElementById('staff-email-input').value.trim();
+    const msg = document.getElementById('staff-login-msg');
+    if (!email) { msg.textContent = 'Enter an email.'; return; }
+    msg.textContent = 'Sending…';
+    const { error } = await sb.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.origin + window.location.pathname }
+    });
+    msg.textContent = error ? ('Error: ' + error.message) : 'Check your email for a sign-in link.';
+  }
+
+  async function enterAsScopedStaff() {
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) return;
+    const { data: staffRows, error } = await sb
+      .from('staff_accounts')
+      .select('id, full_name, role')
+      .ilike('email', user.email)
+      .limit(1);
+
+    if (error || !staffRows || staffRows.length === 0) {
+      document.getElementById('staff-login-msg').textContent =
+        'No matching staff account found for ' + user.email + '. Ask Marissa to check your account.';
+      await sb.auth.signOut();
+      return;
+    }
+    const staff = staffRows[0];
+    if (staff.role !== 'lead' && staff.role !== 'admin') {
+      document.getElementById('staff-login-msg').textContent =
+        'This account has crew-level access — use the Staff page instead of this one.';
+      await sb.auth.signOut();
+      return;
+    }
+    scopedStaffName = staff.full_name;
+    scopedStaffId = staff.id;
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('scoped-staff-banner').style.display = 'block';
+    document.getElementById('scoped-staff-name').textContent = staff.full_name;
+    loadEvents();
+  }
+
+  async function staffLogout() {
+    await sb.auth.signOut();
+    window.location.reload();
+  }
+
+  sb.auth.onAuthStateChange((event, session) => {
+    if (session) enterAsScopedStaff();
+  });
 
   let allEvents = [];
   let sortKey = 'event_date';
@@ -593,9 +675,39 @@
   function showView(view) {
     document.getElementById('nav-overview').classList.toggle('active', view === 'overview');
     document.getElementById('nav-events').classList.toggle('active', view === 'events');
+    document.getElementById('nav-staffaccounts').classList.toggle('active', view === 'staffaccounts');
     document.getElementById('view-overview').style.display = view === 'overview' ? 'block' : 'none';
     document.getElementById('view-events').style.display = view === 'events' ? 'block' : 'none';
-    document.getElementById('page-title').textContent = view === 'overview' ? 'Overview' : 'Active Events';
+    document.getElementById('view-staffaccounts').style.display = view === 'staffaccounts' ? 'block' : 'none';
+    document.getElementById('page-title').textContent =
+      view === 'overview' ? 'Overview' : view === 'events' ? 'Active Events' : 'Staff Accounts';
+    if (view === 'staffaccounts') loadStaffAccounts();
+  }
+
+  async function loadStaffAccounts() {
+    const { data, error } = await sb.from('staff_accounts').select('id, full_name, initials, role, email').order('full_name');
+    const wrap = document.getElementById('staff-accounts-list');
+    if (error) {
+      wrap.innerHTML = 'Could not load staff accounts: ' + escapeHtml(error.message);
+      return;
+    }
+    wrap.innerHTML = data.map(s => `
+      <div class="outstanding-row">
+        <span><strong>${escapeHtml(s.full_name)}</strong> (${escapeHtml(s.role)}) — ${escapeHtml(s.email)}</span>
+        <button class="save-btn" style="padding:6px 14px; font-size:0.82rem;" onclick="resendStaffLoginLink('${s.email}', this)">Resend Login Link</button>
+      </div>
+    `).join('');
+  }
+
+  async function resendStaffLoginLink(email, btn) {
+    btn.textContent = 'Sending…';
+    btn.disabled = true;
+    const { error } = await sb.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.origin + window.location.pathname }
+    });
+    btn.disabled = false;
+    btn.textContent = error ? 'Failed — retry' : 'Sent!';
   }
 
   function buildYearTabs() {
@@ -1181,6 +1293,7 @@
       name: eventName || null,
       event_date: document.getElementById('ae-event-date').value || null,
       venue: document.getElementById('ae-venue').value || null,
+      auctioneer_id: scopedStaffId || null,
     }).select().single();
 
     if (eventError) {
@@ -1208,6 +1321,28 @@
   }
   function getChecked(id) {
     return document.getElementById(id).checked;
+  }
+
+  async function sendClientInvite() {
+    const status = document.getElementById('invite-status');
+    const email = document.getElementById('f-contact_email').value.trim();
+    if (!email) {
+      status.className = 'save-status err';
+      status.textContent = 'Enter a contact email first.';
+      return;
+    }
+    status.className = 'save-status';
+    status.textContent = 'Sending…';
+    const { error } = await sb.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.origin + '/client.html' }
+    });
+    if (error) {
+      status.className = 'save-status err';
+      status.textContent = 'Could not send: ' + error.message;
+    } else {
+      status.textContent = 'Invite sent to ' + email + '.';
+    }
   }
 
   async function saveEvent() {
