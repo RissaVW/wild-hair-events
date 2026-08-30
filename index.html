@@ -170,7 +170,7 @@
   .field { display: flex; flex-direction: column; gap: 6px; }
   .field.span2 { grid-column: span 2; }
   .field label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); font-weight: 600; }
-  .field input, .field textarea {
+  .field input, .field textarea, .field select {
     padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; font-family: var(--font-body);
     font-size: 0.92rem; color: var(--ink); background: var(--paper);
   }
@@ -290,6 +290,25 @@
     <div style="font-size:0.82rem; color:var(--muted); margin-top:16px;">
       "Resend Login Link" sends that person a fresh, one-click sign-in email — useful if they're locked out or on a new device. There's no password to reset since everyone logs in this way.
     </div>
+
+    <div class="section-title">Add Staff</div>
+    <div class="form-grid">
+      <div class="field"><label>Full Name</label><input type="text" id="ns-full_name"></div>
+      <div class="field"><label>Initials</label><input type="text" id="ns-initials"></div>
+      <div class="field"><label>Email</label><input type="email" id="ns-email"></div>
+      <div class="field">
+        <label>Access Level</label>
+        <select id="ns-role">
+          <option value="auctioneer">Auctioneer — same access as Marissa, scoped to their own events</option>
+          <option value="lead">Lead — On-Boarding + most of Details, no financials</option>
+          <option value="staff">Staff — event-day crew view only</option>
+        </select>
+      </div>
+    </div>
+    <div class="save-bar">
+      <button class="save-btn" onclick="addStaffAccount()">Add Staff</button>
+      <span class="save-status" id="add-staff-status"></span>
+    </div>
   </div>
 
   <div id="view-events" style="display:none;">
@@ -367,10 +386,10 @@
 
     <div class="detail-tab-nav">
       <button class="detail-tab-btn active" onclick="showDetailTab('onboarding', this)">On-Boarding</button>
-      <button class="detail-tab-btn" onclick="showDetailTab('powerpoint', this)">PowerPoint</button>
-      <button class="detail-tab-btn" onclick="showDetailTab('revgen', this)">Revenue Generators</button>
-      <button class="detail-tab-btn" onclick="showDetailTab('prevstats', this)">Previous Statistics</button>
-      <button class="detail-tab-btn" onclick="showDetailTab('bidders', this)">Bidder Numbers</button>
+      <button class="detail-tab-btn" id="tabbtn-powerpoint" onclick="showDetailTab('powerpoint', this)">PowerPoint</button>
+      <button class="detail-tab-btn" id="tabbtn-revgen" onclick="showDetailTab('revgen', this)">Revenue Generators</button>
+      <button class="detail-tab-btn" id="tabbtn-prevstats" onclick="showDetailTab('prevstats', this)">Previous Statistics</button>
+      <button class="detail-tab-btn" id="tabbtn-bidders" onclick="showDetailTab('bidders', this)">Bidder Numbers</button>
       <button class="detail-tab-btn" onclick="showDetailTab('details', this)">Details</button>
     </div>
 
@@ -482,6 +501,7 @@
       <div class="field"><label>Bid cards status</label><input type="text" id="f-bid_cards_status"></div>
     </div>
 
+    <div id="section-contract-payment">
     <div class="section-title">Contract &amp; Payment</div>
     <div class="form-grid">
       <div class="field checkbox-field"><label><input type="checkbox" id="f-contract_sent"> Contract sent</label></div>
@@ -489,7 +509,9 @@
       <div class="field checkbox-field"><label><input type="checkbox" id="f-fee_paid_in_full"> Fee paid in full</label></div>
       <div class="field"><label>Deposit amount</label><input type="number" step="0.01" id="f-deposit_amount"></div>
     </div>
+    </div>
 
+    <div id="section-financials">
     <div class="section-title">Financials</div>
     <div class="form-grid">
       <div class="field"><label>Fee (flat)</label><input type="number" step="0.01" id="f-fee"></div>
@@ -497,6 +519,7 @@
       <div class="field"><label>Actual</label><input type="number" step="0.01" id="f-actual"></div>
       <div class="field"><label>Expenses</label><input type="number" step="0.01" id="f-expenses"></div>
       <div class="field span2"><label>Amount raised</label><input type="number" step="0.01" id="f-amount_raised"></div>
+    </div>
     </div>
 
     <div class="section-title">Contact</div>
@@ -591,6 +614,8 @@
     msg.textContent = error ? ('Error: ' + error.message) : 'Check your email for a sign-in link.';
   }
 
+  let scopedStaffRole = null;
+
   async function enterAsScopedStaff() {
     const { data: { user } } = await sb.auth.getUser();
     if (!user) return;
@@ -607,7 +632,7 @@
       return;
     }
     const staff = staffRows[0];
-    if (staff.role !== 'lead' && staff.role !== 'admin') {
+    if (staff.role !== 'auctioneer' && staff.role !== 'lead') {
       document.getElementById('staff-login-msg').textContent =
         'This account has crew-level access — use the Staff page instead of this one.';
       await sb.auth.signOut();
@@ -615,10 +640,20 @@
     }
     scopedStaffName = staff.full_name;
     scopedStaffId = staff.id;
+    scopedStaffRole = staff.role;
     document.getElementById('gate').style.display = 'none';
     document.getElementById('app').style.display = 'block';
     document.getElementById('scoped-staff-banner').style.display = 'block';
-    document.getElementById('scoped-staff-name').textContent = staff.full_name;
+    document.getElementById('scoped-staff-name').textContent = staff.full_name + ' (' + staff.role + ')';
+
+    if (staff.role === 'lead') {
+      document.getElementById('tabbtn-powerpoint').style.display = 'none';
+      document.getElementById('tabbtn-revgen').style.display = 'none';
+      document.getElementById('tabbtn-prevstats').style.display = 'none';
+      document.getElementById('tabbtn-bidders').style.display = 'none';
+      document.getElementById('section-contract-payment').style.display = 'none';
+      document.getElementById('section-financials').style.display = 'none';
+    }
     loadEvents();
   }
 
@@ -685,18 +720,99 @@
   }
 
   async function loadStaffAccounts() {
-    const { data, error } = await sb.from('staff_accounts').select('id, full_name, initials, role, email').order('full_name');
+    const { data: staff, error: staffErr } = await sb.from('staff_accounts').select('id, full_name, initials, role, email').order('full_name');
     const wrap = document.getElementById('staff-accounts-list');
-    if (error) {
-      wrap.innerHTML = 'Could not load staff accounts: ' + escapeHtml(error.message);
+    if (staffErr) {
+      wrap.innerHTML = 'Could not load staff accounts: ' + escapeHtml(staffErr.message);
       return;
     }
-    wrap.innerHTML = data.map(s => `
-      <div class="outstanding-row">
-        <span><strong>${escapeHtml(s.full_name)}</strong> (${escapeHtml(s.role)}) — ${escapeHtml(s.email)}</span>
-        <button class="save-btn" style="padding:6px 14px; font-size:0.82rem;" onclick="resendStaffLoginLink('${s.email}', this)">Resend Login Link</button>
+
+    const { data: events, error: eventsErr } = await sb
+      .from('events')
+      .select('id, name, event_date, auctioneer_id, clients ( name )')
+      .order('event_date', { ascending: false });
+
+    const eventsList = eventsErr ? [] : events;
+    const staffById = {};
+    staff.forEach(s => { staffById[s.id] = s.initials || s.full_name; });
+
+    function eventOptionsHtml() {
+      return eventsList.map(e => {
+        const clientName = e.clients ? e.clients.name : 'Unknown client';
+        const current = e.auctioneer_id ? (staffById[e.auctioneer_id] || 'assigned') : 'unassigned';
+        const label = `${clientName} — ${e.event_date || 'no date'} (currently: ${current})`;
+        return `<option value="${e.id}">${escapeHtml(label)}</option>`;
+      }).join('');
+    }
+
+    wrap.innerHTML = staff.map(s => `
+      <div class="contact-card">
+        <div class="contact-num">${escapeHtml(s.full_name)} — ${escapeHtml(s.role)}</div>
+        <div style="font-size:0.85rem; color:var(--muted); margin-bottom:10px;">${escapeHtml(s.email)}</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+          <button class="save-btn" style="padding:6px 14px; font-size:0.82rem;" onclick="resendStaffLoginLink('${s.email}', this)">Resend Login Link</button>
+        </div>
+        <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+          <select id="assign-event-${s.id}" style="flex:1; min-width:220px; padding:9px 12px; border:1px solid var(--line); border-radius:8px; background:var(--paper);">
+            <option value="">Assign an event…</option>
+            ${eventOptionsHtml()}
+          </select>
+          <button class="save-btn" style="padding:6px 14px; font-size:0.82rem;" onclick="assignEventToStaff('${s.id}', this)">Assign</button>
+          <span class="save-status" id="assign-status-${s.id}"></span>
+        </div>
       </div>
     `).join('');
+  }
+
+  async function assignEventToStaff(staffId, btn) {
+    const sel = document.getElementById('assign-event-' + staffId);
+    const status = document.getElementById('assign-status-' + staffId);
+    const eventId = sel.value;
+    if (!eventId) {
+      status.className = 'save-status err';
+      status.textContent = 'Pick an event first.';
+      return;
+    }
+    status.className = 'save-status';
+    status.textContent = 'Assigning…';
+    const { error } = await sb.from('events').update({ auctioneer_id: staffId }).eq('id', eventId);
+    if (error) {
+      status.className = 'save-status err';
+      status.textContent = 'Could not assign: ' + error.message;
+    } else {
+      status.textContent = 'Assigned.';
+      loadStaffAccounts();
+    }
+  }
+
+  async function addStaffAccount() {
+    const status = document.getElementById('add-staff-status');
+    const fullName = document.getElementById('ns-full_name').value.trim();
+    const email = document.getElementById('ns-email').value.trim();
+    if (!fullName || !email) {
+      status.className = 'save-status err';
+      status.textContent = 'Enter at least a name and email.';
+      return;
+    }
+    status.className = 'save-status';
+    status.textContent = 'Adding…';
+    const { error } = await sb.from('staff_accounts').insert({
+      organization_id: ORG_ID,
+      full_name: fullName,
+      initials: document.getElementById('ns-initials').value.trim() || null,
+      email: email,
+      role: document.getElementById('ns-role').value,
+    });
+    if (error) {
+      status.className = 'save-status err';
+      status.textContent = 'Could not add: ' + error.message;
+    } else {
+      status.textContent = 'Added.';
+      document.getElementById('ns-full_name').value = '';
+      document.getElementById('ns-initials').value = '';
+      document.getElementById('ns-email').value = '';
+      loadStaffAccounts();
+    }
   }
 
   async function resendStaffLoginLink(email, btn) {
