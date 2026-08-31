@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GalaGavel — Software built for benefit auctioneers</title>
+<meta name="description" content="Not a bidding platform. GalaGavel is the practice-management system built for benefit auctioneers - client relationships, staff, and event operations, from first consult to final gavel.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<style>
+  :root {
+    --ink: #261D16; --paper: #F5EFE7; --panel: #FBF8F2; --line: #ddd6c9;
+    --clay: #BB6546; --clay-dark: #8f4b32; --brass: #DB9152; --muted: #6b645a;
+  }
+  @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Work+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: 'Work Sans', sans-serif; line-height: 1.6; }
+  a { color: inherit; }
+
+  header.nav { display: flex; align-items: center; justify-content: space-between; padding: 24px 32px; max-width: 1080px; margin: 0 auto; }
+  .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+  .mark { width: 38px; height: 38px; border-radius: 8px; background: var(--ink); position: relative; overflow: hidden; flex: none; }
+  .mark .g1 { position: absolute; left: 5px; top: 1px; font-family: 'Instrument Serif', serif; font-size: 19px; line-height: 1; color: var(--brass); }
+  .mark .g2 { position: absolute; right: 5px; bottom: 1px; font-family: 'Instrument Serif', serif; font-size: 19px; line-height: 1; color: var(--paper); transform: rotate(180deg); }
+  .wordmark { font-weight: 600; font-size: 19px; letter-spacing: -0.02em; }
+  .nav-right { display: flex; align-items: center; gap: 24px; }
+  .nav-link { font-size: 14px; text-decoration: none; color: var(--muted); }
+  .btn { display: inline-block; background: var(--clay); color: #fdfbf7; font-weight: 600; font-size: 14px; padding: 12px 24px; border-radius: 8px; text-decoration: none; border: none; cursor: pointer; font-family: 'Work Sans', sans-serif; }
+  .btn:hover { background: var(--clay-dark); }
+  .btn-ghost { background: transparent; border: 1px solid var(--line); color: var(--ink); }
+
+  .hero { padding: 28px 32px 64px; max-width: 1080px; margin: 0 auto; }
+  .eyebrow { font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 18px; color: var(--clay-dark); }
+  .headline { font-family: 'Instrument Serif', serif; font-size: 52px; line-height: 1.1; margin: 0 0 22px; max-width: 15ch; }
+  .sub { font-size: 16px; line-height: 1.65; color: #5a5349; max-width: 54ch; margin: 0 0 12px; }
+  .sub strong { color: var(--ink); }
+  .sub-small { font-size: 13.5px; color: #7a7266; max-width: 50ch; }
+  .cta-row { display: flex; gap: 14px; align-items: center; margin-top: 28px; flex-wrap: wrap; }
+
+  section { padding: 64px 32px; max-width: 1080px; margin: 0 auto; }
+  .section-title { font-family: 'Instrument Serif', serif; font-size: 32px; line-height: 1.15; margin: 0 0 12px; max-width: 20ch; }
+  .section-kicker { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+
+  .gap-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border-radius: 12px; overflow: hidden; margin-top: 36px; }
+  .gap-card { background: var(--panel); padding: 28px 26px; }
+  .gap-card.you { background: var(--ink); color: var(--paper); }
+  .gap-card h4 { font-family: 'Work Sans', sans-serif; font-weight: 600; font-size: 15px; margin: 0 0 8px; }
+  .gap-card p { font-size: 13.5px; line-height: 1.55; color: var(--muted); margin: 0; }
+  .gap-card.you p { color: #d8cfc2; }
+  .gap-card.you h4 { color: var(--brass); }
+
+  .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-top: 36px; }
+  .step { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 24px 20px; }
+  .step-num { font-family: 'Instrument Serif', serif; font-size: 30px; color: var(--clay); margin-bottom: 10px; }
+  .step h4 { font-size: 14.5px; font-weight: 600; margin: 0 0 6px; }
+  .step p { font-size: 13px; line-height: 1.5; color: var(--muted); margin: 0; }
+
+  .cap-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-top: 36px; }
+  .cap { display: flex; gap: 16px; }
+  .cap-icon { width: 40px; height: 40px; border-radius: 8px; background: #efe4d8; display: flex; align-items: center; justify-content: center; flex: none; font-family: 'Instrument Serif', serif; font-size: 18px; color: var(--clay-dark); }
+  .cap h4 { font-size: 15px; font-weight: 600; margin: 0 0 6px; }
+  .cap p { font-size: 13.5px; line-height: 1.55; color: var(--muted); margin: 0; }
+
+  .origin { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 44px; margin: 64px auto; max-width: 1016px; }
+  .origin p { font-size: 16px; line-height: 1.7; color: #4a4438; max-width: 62ch; }
+  .origin p:first-of-type { font-family: 'Instrument Serif', serif; font-size: 24px; line-height: 1.4; color: var(--ink); }
+
+  .band { background: var(--ink); color: var(--paper); padding: 56px 32px; border-radius: 16px; }
+  .band-inner { max-width: 1016px; margin: 0 auto; }
+  .band h3 { font-family: 'Instrument Serif', serif; font-size: 30px; margin: 0 0 8px; font-weight: 400; }
+  .band p { color: #c9c2b6; font-size: 14px; margin: 0 0 16px; }
+  .form-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .form-row input { padding: 12px 14px; border-radius: 8px; border: 1px solid #4a4438; background: #2f2519; color: var(--paper); font-family: 'Work Sans', sans-serif; font-size: 14px; min-width: 200px; }
+  .form-row input::placeholder { color: #8a8378; }
+  .form-status { font-size: 13px; color: var(--brass); margin-top: 8px; min-height: 1.2em; }
+
+  footer { padding: 32px; max-width: 1080px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--muted); }
+  footer a { text-decoration: none; color: var(--muted); }
+  footer a:hover { color: var(--ink); }
+
+  @media (max-width: 800px) {
+    .headline { font-size: 38px; }
+    .gap-grid, .steps, .cap-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <a href="/" class="brand">
+    <div class="mark"><span class="g1">G</span><span class="g2">G</span></div>
+    <span class="wordmark">GalaGavel</span>
+  </a>
+  <div class="nav-right">
+    <a href="about.html" class="nav-link">About</a>
+    <a href="#walkthrough" class="btn">Book a walkthrough</a>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="eyebrow">The first software built exclusively for benefit auctioneers</div>
+  <h1 class="headline">Nobody else is building for benefit auctioneers. We are.</h1>
+  <p class="sub">Your clients already have a bidding platform for checkout night. GalaGavel is different - it's built for <strong>you</strong>: your client relationships, your staff, and your event operations, from first consult to final gavel.</p>
+  <p class="sub sub-small">Not a bid-entry tool. Not built for the donors. Built for the business behind your events.</p>
+  <div class="cta-row">
+    <a href="#walkthrough" class="btn">Book a walkthrough</a>
+    <a href="#how-it-works" class="btn btn-ghost">See how it works</a>
+  </div>
+</div>
+
+<section id="the-gap">
+  <div class="section-kicker">Two kinds of software already exist</div>
+  <h2 class="section-title">Neither one was built for you.</h2>
+  <div class="gap-grid">
+    <div class="gap-card">
+      <h4>For the charity</h4>
+      <p>Donor management, campaigns, and fundraising tools already exist for the nonprofit itself.</p>
+    </div>
+    <div class="gap-card">
+      <h4>For bid night</h4>
+      <p>Mobile bidding and checkout platforms already exist for the night of the event.</p>
+    </div>
+    <div class="gap-card you">
+      <h4>For you</h4>
+      <p>Until now, nothing existed for the auctioneer running the business behind all of it.</p>
+    </div>
+  </div>
+</section>
+
+<section id="how-it-works">
+  <div class="section-kicker">How it works</div>
+  <h2 class="section-title">From first consult to final gavel.</h2>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <h4>On-board the client</h4>
+      <p>Capture contacts, logistics, and key dates the moment a new gala lands on your calendar.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <h4>Plan the event</h4>
+      <p>Run of show, live auction items, paddle raise levels, and staff assignments - all in one place.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <h4>Run the night</h4>
+      <p>Your team opens exactly what they need, scoped to exactly their role.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <h4>Close it out</h4>
+      <p>Debrief notes and final numbers, on record and ready for next year.</p>
+    </div>
+  </div>
+</section>
+
+<section id="capabilities">
+  <div class="section-kicker">What's inside</div>
+  <h2 class="section-title">Everything the business side of a gala actually needs.</h2>
+  <div class="cap-grid">
+    <div class="cap">
+      <div class="cap-icon">1</div>
+      <div><h4>On-boarding &amp; client info</h4><p>Contacts, venue details, logistics, and key dates, all in one place from day one.</p></div>
+    </div>
+    <div class="cap">
+      <div class="cap-icon">2</div>
+      <div><h4>Run of show &amp; event day</h4><p>Everyone on your team sees exactly what's happening, and when.</p></div>
+    </div>
+    <div class="cap">
+      <div class="cap-icon">3</div>
+      <div><h4>Live auction &amp; paddle raise</h4><p>Track items, sale prices, and giving levels in real time, not on paper.</p></div>
+    </div>
+    <div class="cap">
+      <div class="cap-icon">4</div>
+      <div><h4>Role-based access</h4><p>You, your lead, your crew, and your client each see exactly what they need - nothing more.</p></div>
+    </div>
+  </div>
+</section>
+
+<div class="origin">
+  <p>Built inside a real auction business - not a software company guessing at one.</p>
+  <p>GalaGavel didn't start as a product pitch. It started as the internal system built to run one working benefit auction business's actual events - every client, every staff assignment, every gala, tracked for real, under real pressure. It became GalaGavel because the same gap exists for every benefit auctioneer running a business, not just one.</p>
+</div>
+
+<section id="walkthrough" style="padding-top:0;">
+  <div class="band">
+    <div class="band-inner">
+      <h3>Every gala, one platform.</h3>
+      <p>Tell us a bit about your business and we'll reach out to set up a walkthrough.</p>
+      <div class="form-row">
+        <input type="text" id="wr-name" placeholder="Your name">
+        <input type="email" id="wr-email" placeholder="you@yourbusiness.com">
+        <button class="btn" onclick="submitWalkthroughRequest()">Request a walkthrough</button>
+      </div>
+      <div class="form-status" id="wr-status"></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="brand" style="gap:8px;">
+    <div class="mark" style="width:26px; height:26px; border-radius:6px;"><span class="g1" style="font-size:13px; left:3px; top:1px;">G</span><span class="g2" style="font-size:13px; right:3px; bottom:1px;">G</span></div>
+    <span style="font-size:13px; color:var(--muted);">GalaGavel</span>
+  </div>
+  <div style="display:flex; gap:20px; align-items:center;">
+    <a href="about.html">About</a>
+    <a href="privacy.html">Privacy</a>
+    <a href="mailto:hello@galagavel.com">hello@galagavel.com</a>
+  </div>
+  <div>&copy; 2026 GalaGavel</div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+  const SUPABASE_URL = "https://oooqjgpttzwwqaftlpbb.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9vb3FqZ3B0dHp3d3FhZnRscGJiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MTQxNzcsImV4cCI6MjEwMjM5MDE3N30.9-YYCxXgJ1GAUST7t9eTYS2phXx1qZwpTUqijsc5yGI";
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  async function submitWalkthroughRequest() {
+    const name = document.getElementById('wr-name').value.trim();
+    const email = document.getElementById('wr-email').value.trim();
+    const status = document.getElementById('wr-status');
+    if (!email) {
+      status.textContent = 'Enter your email so we can reach you.';
+      return;
+    }
+    status.textContent = 'Sending...';
+    const { error } = await sb.from('walkthrough_requests').insert({ name: name || null, email });
+    status.textContent = error ? ('Something went wrong: ' + error.message) : "Thanks - we'll be in touch soon.";
+    if (!error) {
+      document.getElementById('wr-name').value = '';
+      document.getElementById('wr-email').value = '';
+    }
+  }
+</script>
+</body>
+</html>
