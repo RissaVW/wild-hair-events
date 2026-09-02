@@ -6,17 +6,18 @@
 <title>Wild Hair Auctions — Events</title>
 <style>
   :root {
-    --ink: #1c2024;
-    --paper: #faf8f4;
-    --panel: #ffffff;
-    --line: #e4dfd6;
-    --gold: #b8863f;
-    --gold-dark: #8f6528;
-    --muted: #6b6459;
+    --ink: #261D16;
+    --paper: #F5EFE7;
+    --panel: #FBF8F2;
+    --line: #ddd6c9;
+    --gold: #BB6546;
+    --gold-dark: #8f4b32;
+    --muted: #6b645a;
     --good: #3f7a4f;
-    --warn: #b8863f;
-    --font-display: 'Fraunces', Georgia, serif;
-    --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --warn: #BB6546;
+    --font-display: 'Instrument Serif', Georgia, serif;
+    --font-body: 'Work Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
   }
   * { box-sizing: border-box; }
   body {
@@ -25,7 +26,7 @@
     color: var(--ink);
     font-family: var(--font-body);
   }
-  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Work+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
   /* ---- Passcode gate ---- */
   #gate {
@@ -33,7 +34,7 @@
     display: flex; align-items: center; justify-content: center;
     z-index: 50; flex-direction: column; gap: 18px;
   }
-  #gate h1 { color: var(--paper); font-family: var(--font-display); font-weight: 600; font-size: 1.6rem; margin: 0; }
+  #gate h1 { color: var(--paper); font-family: var(--font-display); font-size: 1.8rem; margin: 0; }
   #gate input {
     padding: 12px 16px; font-size: 1rem; border-radius: 8px; border: none;
     width: 220px; text-align: center; letter-spacing: 3px;
@@ -48,13 +49,15 @@
   /* ---- App shell ---- */
   #app { display: none; max-width: 1200px; margin: 0 auto; padding: 40px 24px 80px; }
   header.top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 28px; flex-wrap: wrap; gap: 12px; }
-  header.top h1 { font-family: var(--font-display); font-weight: 600; font-size: 2rem; margin: 0; }
-  header.top .eyebrow { text-transform: uppercase; letter-spacing: 2px; font-size: 0.72rem; color: var(--gold-dark); font-weight: 600; margin-bottom: 4px; }
-  .brand-logo { height: 56px; width: auto; display: block; margin-bottom: 8px; }
+  header.top h1 { font-family: var(--font-display); font-size: 2.2rem; margin: 0; }
+  header.top .eyebrow { font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.68rem; color: var(--gold-dark); font-weight: 500; margin-bottom: 4px; }
+  .brand-logo { width: 56px; height: 56px; border-radius: 12px; background: var(--ink); position: relative; overflow: hidden; margin-bottom: 8px; }
+  .brand-logo .g1 { position: absolute; left: 7px; top: 2px; font-family: var(--font-display); font-size: 28px; line-height: 1; color: var(--gold-dark); }
+  .brand-logo .g2 { position: absolute; right: 7px; bottom: 2px; font-family: var(--font-display); font-size: 28px; line-height: 1; color: var(--paper); transform: rotate(180deg); }
 
   .stats { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
   .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 20px; min-width: 130px; }
-  .stat .n { font-family: var(--font-display); font-size: 1.6rem; font-weight: 600; }
+  .stat .n { font-family: var(--font-display); font-size: 1.8rem; }
   .stat .l { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
 
   .controls { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; align-items: center; }
@@ -113,7 +116,7 @@
   @media (max-width: 900px) { .dash-grid { grid-template-columns: repeat(2, 1fr); } }
   @media (max-width: 480px) { .dash-grid { grid-template-columns: 1fr; } }
   .dash-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
-  .dash-card .n { font-family: var(--font-display); font-size: 1.5rem; font-weight: 600; }
+  .dash-card .n { font-family: var(--font-display); font-size: 1.7rem; }
   .dash-card .l { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-top: 2px; }
   .dash-card.warn .n { color: #b04a4a; }
   .dash-card.good .n { color: var(--good); }
@@ -261,7 +264,7 @@
 <div id="app">
   <header class="top">
     <div>
-      <img src="wild-hair-logo.webp" alt="Wild Hair Auctions and Events" class="brand-logo">
+      <div class="brand-logo"><span class="g1">G</span><span class="g2">G</span></div>
       <div class="eyebrow">Wild Hair Auctions</div>
       <h1 id="page-title">Overview</h1>
     </div>
@@ -561,7 +564,7 @@
       </thead>
       <tbody id="admin-paddle-tbody"></tbody>
     </table>
-    <div style="text-align:right; font-family: var(--font-display); font-size: 1.2rem; font-weight: 600; padding: 14px;" id="admin-paddle-total"></div>
+    <div style="text-align:right; font-family: var(--font-display); font-size: 1.35rem; padding: 14px;" id="admin-paddle-total"></div>
 
     </div>
     <!-- end Details tab -->
