@@ -107,7 +107,7 @@
     <header class="top">
       <div>
         <div class="brand-logo"><span class="g1">G</span><span class="g2">G</span></div>
-        <div class="eyebrow">GalaGavel</div>
+        <div class="eyebrow" id="org-name-eyebrow">GalaGavel</div>
         <h1 style="font-family: var(--font-display); font-size: 1.8rem; margin: 4px 0 0;">Your Events</h1>
       </div>
       <span onclick="staffLogout()" style="cursor:pointer; text-decoration:underline; color:var(--muted); font-size:0.85rem;">Log out</span>
@@ -251,16 +251,22 @@
     if (!user) return;
     const { data: staffRows, error } = await sb
       .from('staff_accounts')
-      .select('id, full_name')
+      .select('id, full_name, organization_id')
       .ilike('email', user.email)
       .limit(1);
 
     if (error || !staffRows || staffRows.length === 0) {
       document.getElementById('gate-err').textContent =
-        'No matching staff account found for ' + user.email + '. Ask Marissa to check your account.';
+        'No matching staff account found for ' + user.email + '. Ask your account admin to check your account.';
       await sb.auth.signOut();
       return;
     }
+    const staff = staffRows[0];
+    sb.from('organizations').select('name').eq('id', staff.organization_id).single().then(({ data: orgData, error: orgErr }) => {
+      if (!orgErr && orgData && orgData.name) {
+        document.getElementById('org-name-eyebrow').textContent = orgData.name;
+      }
+    });
     document.getElementById('gate').style.display = 'none';
     document.getElementById('app').style.display = 'block';
     loadEvents();
