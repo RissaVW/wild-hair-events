@@ -265,7 +265,7 @@
   <header class="top">
     <div>
       <div class="brand-logo"><span class="g1">G</span><span class="g2">G</span></div>
-      <div class="eyebrow">GalaGavel</div>
+      <div class="eyebrow" id="org-name-eyebrow">GalaGavel</div>
       <h1 id="page-title">Overview</h1>
     </div>
     <nav class="top-nav">
@@ -593,6 +593,7 @@
     const val = document.getElementById('passcode-input').value;
     if (val === ADMIN_PASSCODE) {
       currentOrgId = ORG_ID;
+      document.getElementById('org-name-eyebrow').textContent = 'Wild Hair Auctions';
       document.getElementById('gate').style.display = 'none';
       document.getElementById('app').style.display = 'block';
       document.getElementById('nav-staffaccounts').style.display = 'inline-block';
@@ -606,6 +607,8 @@
     if (e.key === 'Enter') checkPasscode();
   });
   if (sessionStorage.getItem('wha_authed') === '1') {
+    currentOrgId = ORG_ID;
+    document.getElementById('org-name-eyebrow').textContent = 'Wild Hair Auctions';
     document.getElementById('gate').style.display = 'none';
     document.getElementById('app').style.display = 'block';
     document.getElementById('nav-staffaccounts').style.display = 'inline-block';
@@ -655,6 +658,11 @@
     scopedStaffId = staff.id;
     scopedStaffRole = staff.role;
     currentOrgId = staff.organization_id;
+    sb.from('organizations').select('name').eq('id', currentOrgId).single().then(({ data: orgData, error: orgErr }) => {
+      if (!orgErr && orgData && orgData.name) {
+        document.getElementById('org-name-eyebrow').textContent = orgData.name;
+      }
+    });
     document.getElementById('gate').style.display = 'none';
     document.getElementById('app').style.display = 'block';
 
