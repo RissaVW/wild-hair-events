@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Wild Hair Auctions — Events</title>
+<title>GalaGavel — Events</title>
 <style>
   :root {
     --ink: #261D16;
@@ -246,7 +246,7 @@
 <body>
 
 <div id="gate">
-  <h1>Wild Hair Auctions</h1>
+  <h1>GalaGavel</h1>
   <div>
     <input id="passcode-input" type="password" placeholder="Passcode" autocomplete="off" />
   </div>
@@ -265,7 +265,7 @@
   <header class="top">
     <div>
       <div class="brand-logo"><span class="g1">G</span><span class="g2">G</span></div>
-      <div class="eyebrow">Wild Hair Auctions</div>
+      <div class="eyebrow">GalaGavel</div>
       <h1 id="page-title">Overview</h1>
     </div>
     <nav class="top-nav">
@@ -586,11 +586,13 @@
   // ────────────────────────────────────────────────────────────
 
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  const ORG_ID = "00000000-0000-0000-0000-000000000001";
+  const ORG_ID = "00000000-0000-0000-0000-000000000001"; // Marissa's org - used only by the shared-passcode login below
+  let currentOrgId = ORG_ID; // the org actually in use this session; email login below sets this to whoever's own org
 
   function checkPasscode() {
     const val = document.getElementById('passcode-input').value;
     if (val === ADMIN_PASSCODE) {
+      currentOrgId = ORG_ID;
       document.getElementById('gate').style.display = 'none';
       document.getElementById('app').style.display = 'block';
       document.getElementById('nav-staffaccounts').style.display = 'inline-block';
@@ -632,18 +634,18 @@
     if (!user) return;
     const { data: staffRows, error } = await sb
       .from('staff_accounts')
-      .select('id, full_name, role')
+      .select('id, full_name, role, organization_id')
       .ilike('email', user.email)
       .limit(1);
 
     if (error || !staffRows || staffRows.length === 0) {
       document.getElementById('staff-login-msg').textContent =
-        'No matching staff account found for ' + user.email + '. Ask Marissa to check your account.';
+        'No matching staff account found for ' + user.email + '. Ask your account admin to check your account.';
       await sb.auth.signOut();
       return;
     }
     const staff = staffRows[0];
-    if (staff.role !== 'auctioneer' && staff.role !== 'lead') {
+    if (staff.role !== 'auctioneer' && staff.role !== 'lead' && staff.role !== 'admin') {
       document.getElementById('staff-login-msg').textContent =
         'This account has crew-level access — use the Staff page instead of this one.';
       await sb.auth.signOut();
@@ -652,10 +654,16 @@
     scopedStaffName = staff.full_name;
     scopedStaffId = staff.id;
     scopedStaffRole = staff.role;
+    currentOrgId = staff.organization_id;
     document.getElementById('gate').style.display = 'none';
     document.getElementById('app').style.display = 'block';
-    document.getElementById('scoped-staff-banner').style.display = 'block';
-    document.getElementById('scoped-staff-name').textContent = staff.full_name + ' (' + staff.role + ')';
+
+    if (staff.role === 'admin') {
+      document.getElementById('nav-staffaccounts').style.display = 'inline-block';
+    } else {
+      document.getElementById('scoped-staff-banner').style.display = 'block';
+      document.getElementById('scoped-staff-name').textContent = staff.full_name + ' (' + staff.role + ')';
+    }
 
     if (staff.role === 'lead') {
       document.getElementById('tabbtn-powerpoint').style.display = 'none';
@@ -809,7 +817,7 @@
     status.className = 'save-status';
     status.textContent = 'Adding…';
     const { error } = await sb.from('staff_accounts').insert({
-      organization_id: ORG_ID,
+      organization_id: currentOrgId,
       full_name: fullName,
       initials: document.getElementById('ns-initials').value.trim() || null,
       email: email,
@@ -1423,7 +1431,7 @@
         return;
       }
       const { data, error } = await sb.from('clients').insert({
-        organization_id: ORG_ID,
+        organization_id: currentOrgId,
         name: name,
         contact_name: document.getElementById('ae-new-contact-name').value || null,
         contact_email: document.getElementById('ae-new-contact-email').value || null,
@@ -1445,7 +1453,7 @@
 
     const eventName = document.getElementById('ae-event-name').value.trim();
     const { data: eventData, error: eventError } = await sb.from('events').insert({
-      organization_id: ORG_ID,
+      organization_id: currentOrgId,
       client_id: clientId,
       name: eventName || null,
       event_date: document.getElementById('ae-event-date').value || null,
